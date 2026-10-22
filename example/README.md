@@ -114,7 +114,13 @@ resolve the choice — the analyzer throws in that case.
 The generator side is verified locally: `node gen.ts` is deterministic and the
 committed Rust matches it exactly.
 
-**The Rust has not been compiled in the environment where it was written** — no
-`cargo` was available. CI (`.github/workflows/ci.yml`) builds the crate and runs
-both test suites on every push and pull request. Until that has run green once,
-treat the first CI run as the real compile check.
+The Rust side is verified by CI, not locally: there is no `cargo` in the
+environment where this was written, so `.github/workflows/ci.yml` is the
+compiler. It builds the crate, runs `cargo test --lib` (16 tests) and
+`cargo test --test parse` (9 tests), and lints with clippy `-D warnings` plus
+rustfmt. Run [`39779433721`](https://github.com/sonneko/tibineko/actions/runs/39779433721)
+was the first fully green one — **25 passed, 0 failed**.
+
+CI found real bugs that local review had missed: a dropped `use IParseErr`, an
+inner attribute placed after `use` statements, `Diagnostic` lacking `Debug`,
+and `ArenaIterReader::Item` being `&mut T` rather than `T`.

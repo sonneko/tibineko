@@ -183,13 +183,15 @@ T1 は上書きされるので、あなたの編集は T2/T3 に閉じていれ�
    → **完了**。`gen/` を参照。`node gen/self_test.ts` = 16 passed / 0 failed。
 2. **tibineko レポジトリに `gen/` `runtime/` `seed/` `example/` を配置し、`example/` で最小言語を生成してみる。**
    検収: example が `cargo build` まで通る。
-   → **生成までは完了**。`example/` は13ルールから802行のRustを決定論的に生成する。
-   **`cargo build` は未達**（この環境に cargo がない。`example/` は crate ではなく生成デモ）。
+   → **完了**。`example/` は実 Cargo クレートで、13ルールから802行のRustを決定論的に
+   生成する。**`cargo build` と両テストスイートは CI で green**（run `39779433721`、
+   25 passed / 0 failed）。この環境に cargo がないため CI が唯一のコンパイラ。
 3. **hydent-lang を example と同じ構成に寄せる** — 生成物をコミットし、`.gitignore` から外す。
    検収: 新鮮な clone で Node を使わず `cargo build && cargo test` が通る。
    → **未着手**。hydent-lang 側の変更を伴う。
    ただし本レポジトリの `gen/` が hydent-lang の文法に対して
-   **元パイプラインとバイト単位で同一の出力**を出すことは確認済み（付録参照）。
+   **元パイプラインと実質同一の出力**を出すことは確認済み（付録参照。4ファイル中
+   2ファイルがバイト単位で同一、残り2ファイルの差分は追加した `#![allow(...)]` 行のみ）。
 
 v1 の6フェーズは消えた。
 
@@ -271,8 +273,17 @@ cd example && node gen.ts      # → 7ファイル生成、802行のRust
   `ArenaBox<Value>` に box されること、list 経由の循環は box されないことを確認。
 - **TIBINEKO-FORK**: 13マーカー / 6ファイル。`grep -rn TIBINEKO-FORK gen/` で一覧できる。
 
-### 未検証
+### 検証手段についての注記
 
-この環境に `cargo` がないため、**Rust 側のビルド・テストは一切実行していない**
-（Node v22.22.3 のみ利用可）。`runtime/*.rs` は hydent-lang の動作実績のあるファイルと
-バイト単位で同一（`tracer.rs` のみ未使用 import を削除）。
+この環境に `cargo` がないため、**Rust 側の検証はすべて GitHub Actions 上で行った**
+（ローカルは Node v22.22.3 のみ）。`.github/workflows/ci.yml` が `cargo build`・
+`cargo test --lib`・`cargo test --test parse`・clippy・rustfmt を実行し、
+run `39779433721` で 3ジョブすべて green（**25 passed / 0 failed**）。
+
+`runtime/*.rs` は hydent-lang の動作実績のあるファイルと**6ファイル中5ファイルが
+バイト単位で同一**（`tracer.rs` のみ未使用 import 2行を削除。hydent は crate 全体の
+`#![allow(unused)]` でそれを隠している）。
+
+CI が見つけて直したバグ: `manual_parser.rs` の `use IParseErr` 欠落（E0599 ×5）、
+内包属性の位置、`Diagnostic` の `Debug` 欠落、`ArenaIterReader::Item` が `&mut T`
+であること、コメントを落とすのが tokenizer ではなく `TokenStream` であること。
