@@ -1,14 +1,36 @@
 //! Unit tests for the parser. These live inside the crate, so they can see the
 //! `pub(super)` AST fields that the integration tests in `tests/` cannot.
 
-use crate::parser::ast::{Entry, Value};
+use crate::parser::ast::{Entry, ListValue, Value, ValueItem};
 use crate::parser::parse_source;
+use crate::parser::Ast;
+
+/// Collects a document's entries into owned values.
+///
+/// `ArenaIterReader` yields `&mut T` rather than `T`. The nodes are `Copy`, so
+/// copying them out here lets the assertions match on entries directly instead
+/// of through a reference.
+fn entries(ast: &Ast<'_>) -> Vec<Entry> {
+    ast.document()
+        .entries()
+        .into_ref(ast.arena())
+        .map(|e| *e)
+        .collect()
+}
+
+/// The same, for one list's items.
+fn value_items(list: &ListValue, ast: &Ast<'_>) -> Vec<ValueItem> {
+    list.items()
+        .into_ref(ast.arena())
+        .map(|e| *e)
+        .collect()
+}
 
 #[test]
 fn parses_an_empty_document() {
     let (ast, diagnostics) = parse_source("");
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
-    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect();
+    let entries = entries(&ast);
     assert!(entries.is_empty());
 }
 
@@ -17,7 +39,7 @@ fn parses_a_single_pair() {
     let (ast, diagnostics) = parse_source("port: 8080;");
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
 
-    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect();
+    let entries = entries(&ast);
     assert_eq!(entries.len(), 1);
 
     match entries[0] {
@@ -38,7 +60,7 @@ fn parses_each_value_shape() {
     let (ast, diagnostics) = parse_source(source);
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
 
-    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect();
+    let entries = entries(&ast);
     assert_eq!(entries.len(), 5, "one pair per key");
 
     let kinds: Vec<&str> = entries
@@ -65,7 +87,7 @@ fn keeps_a_doc_comment_as_an_entry() {
     let (ast, diagnostics) = parse_source("/// a note\nport: 1;");
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
 
-    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect();
+    let entries = entries(&ast);
     assert_eq!(entries.len(), 2, "note and pair should both be entries");
     assert!(matches!(entries[0], Entry::Note(_)));
     assert!(matches!(entries[1], Entry::Pair(_)));
@@ -78,7 +100,7 @@ fn walks_boxed_recursive_values() {
     let (ast, diagnostics) = parse_source("deep: ((7));");
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
 
-    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect();
+    let entries = entries(&ast);
     let pair = match entries[0] {
         Entry::Pair(pair) => pair,
         other => panic!("expected Pair, got {other:?}"),
@@ -104,7 +126,7 @@ fn parses_a_nested_list_and_ignores_a_trailing_comma() {
     let (ast, diagnostics) = parse_source("nested: [1, [2, 3],];");
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
 
-    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect();
+    let entries = entries(&ast);
     let pair = match entries[0] {
         Entry::Pair(pair) => pair,
         other => panic!("expected Pair, got {other:?}"),
@@ -114,7 +136,7 @@ fn parses_a_nested_list_and_ignores_a_trailing_comma() {
         other => panic!("expected ListValue, got {other:?}"),
     };
 
-    let items: Vec<_> = list.items().into_ref(ast.arena()).map(|e| *e).collect();
+    let items = value_items(list, &ast);
     assert_eq!(items.len(), 2, "trailing comma should not add an item");
 
     // The second item is itself a list of two.
@@ -122,7 +144,7 @@ fn parses_a_nested_list_and_ignores_a_trailing_comma() {
         Value::ListValue(l) => l,
         other => panic!("expected nested ListValue, got {other:?}"),
     };
-    assert_eq!(nested.items().into_ref(ast.arena()).count(), 2);
+    assert_eq!(value_items(nested, &ast).len(), 2);
 }
 
 /// A missing semicolon must not swallow the rest of the file: recovery should
@@ -132,7 +154,7 @@ fn recovers_and_keeps_parsing() {
     let (ast, diagnostics) = parse_source("a: 1\nb: 2;");
     assert!(!diagnostics.is_empty(), "a missing `;` should be reported");
 
-    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect();
+    let entries = entries(&ast);
     let pairs = entries
         .iter()
         .filter(|e| matches!(e, Entry::Pair(_)))

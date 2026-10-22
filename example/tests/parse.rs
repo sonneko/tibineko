@@ -3,8 +3,9 @@
 //! These use only the crate's public API, so they also check that the API is
 //! actually usable from outside.
 
-use tibineko_example::parser::ast::{Entry, Value};
+use tibineko_example::parser::ast::{Entry, ListValue, Value, ValueItem};
 use tibineko_example::parser::parse_source;
+use tibineko_example::parser::Ast;
 
 const DOCUMENT: &str = r#"
 /// server settings
@@ -15,9 +16,29 @@ tags: ["a", "b",];
 nested: [1, [2, 3], (4)];
 "#;
 
+/// Collects a parsed document's entries into owned values.
+///
+/// `ArenaIterReader` yields `&mut T` rather than `T`; the nodes are `Copy`, so
+/// copying them out here keeps the assertions free of references.
+fn entries_of(ast: &Ast<'_>) -> Vec<Entry> {
+    ast.document()
+        .entries()
+        .into_ref(ast.arena())
+        .map(|e| *e)
+        .collect()
+}
+
 fn entries(source: &str) -> Vec<Entry> {
     let (ast, _) = parse_source(source);
-    ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect()
+    entries_of(&ast)
+}
+
+/// The same, for one list's items.
+fn items_of(list: &ListValue, ast: &Ast<'_>) -> Vec<ValueItem> {
+    list.items()
+        .into_ref(ast.arena())
+        .map(|e| *e)
+        .collect()
 }
 
 #[test]
@@ -29,7 +50,7 @@ fn parses_a_whole_document_without_diagnostics() {
     );
 
     // One note plus five key/value pairs.
-    let parsed = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect::<Vec<_>>();
+    let parsed = entries_of(&ast);
     assert_eq!(parsed.len(), 6, "note + 5 pairs");
 
     let notes = parsed.iter().filter(|e| matches!(e, Entry::Note(_))).count();
@@ -43,7 +64,7 @@ fn resolves_keys_through_the_symbol_table() {
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
 
     let mut keys = Vec::new();
-    for entry in ast.document().entries().into_ref(ast.arena()).map(|e| *e) {
+    for entry in entries_of(&ast) {
         if let Entry::Pair(pair) = entry {
             keys.push(ast.symbols().get(&pair.key().symbol).to_owned());
         }
@@ -77,7 +98,7 @@ fn walks_a_deeply_nested_value() {
     let (ast, diagnostics) = parse_source("nested: [1, [2, 3], (4)];");
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
 
-    let parsed = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect::<Vec<_>>();
+    let parsed = entries_of(&ast);
     let pair = match parsed[0] {
         Entry::Pair(pair) => pair,
         other => panic!("expected Pair, got {other:?}"),
@@ -87,7 +108,7 @@ fn walks_a_deeply_nested_value() {
         other => panic!("expected ListValue, got {other:?}"),
     };
 
-    let items = list.items().into_ref(ast.arena()).map(|e| *e).collect::<Vec<_>>();
+    let items = items_of(list, &ast);
     assert_eq!(items.len(), 3);
 
     // items[2] is a GroupedValue wrapping NumberLiteral(4) -- the boxed cycle.
@@ -169,7 +190,7 @@ fn garbage_in_the_middle_still_yields_a_document() {
 fn an_empty_source_is_a_valid_empty_document() {
     let (ast, diagnostics) = parse_source("");
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
-    assert!(ast.document().entries().into_ref(ast.arena()).next().is_none());
+    assert!(entries_of(&ast).is_empty());
     assert_eq!(ast.to_string(), r#"{"type":"Document","Entry":[]}"#);
 }
 
@@ -177,5 +198,5 @@ fn an_empty_source_is_a_valid_empty_document() {
 fn whitespace_only_source_is_also_empty() {
     let (ast, diagnostics) = parse_source("  \n\t\n  ");
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
-    assert!(ast.document().entries().into_ref(ast.arena()).next().is_none());
+    assert!(entries_of(&ast).is_empty());
 }
