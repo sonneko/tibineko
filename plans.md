@@ -275,4 +275,4 @@ cd example && node gen.ts      # → 7ファイル生成、802行のRust
 
 この環境に `cargo` がないため、**Rust 側のビルド・テストは一切実行していない**
 （Node v22.22.3 のみ利用可）。`runtime/*.rs` は hydent-lang の動作実績のあるファイルと
-バイト単位で同一だが、`example/generated/*.rs` を実 crate でコンパイルした実績はまだない。
+バイト単位で同一（`tracer.rs` のみ未使用 import を削除）。

@@ -23,7 +23,9 @@ export class ParserGenerator {
         ret += `//  In "/src/parser/generated_parser.rs"\n`;
         ret += `// ==========================================\n\n`;
         ret += `#![allow(unused_variables)]\n`;
-        ret += `#![allow(clippy::match_single_binding)]\n\n`
+        ret += `#![allow(clippy::match_single_binding)]\n`;
+        // Not every grammar uses every token category or the tracer guard.
+        ret += `#![allow(unused_imports)]\n\n`
         // TIBINEKO-FORK: module paths of the consumer crate. Edit if your runtime lives elsewhere.
         ret += `use crate::parser::base_parser::BaseParser;\n`;
         ret += `use crate::parser::errors::IParseErr;\n`;

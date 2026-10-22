@@ -55,6 +55,7 @@ variant.
 
 ## Not verified here
 
-These files are byte-identical to the working copies in hydent-lang at
-`bb9a359`, which compiles and passes its tests. They have **not** been compiled
-in this repository: the extraction environment has no `cargo`.
+Five of these six are byte-identical to hydent-lang's working copies at
+`bb9a359`, which compiles and passes its tests. `tracer.rs` differs only in
+dropping `use std::{fmt, io};` and `use crate::compiler::span::Span;`, neither
+of which it uses — hydent masks that with a crate-level `#![allow(unused)]`.

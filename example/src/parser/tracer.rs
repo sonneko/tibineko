@@ -1,7 +1,3 @@
-use std::{fmt, io};
-
-use crate::compiler::span::Span;
-
 pub trait Tracer: Sized {
     type Guard;
     fn enter(name: &'static str);

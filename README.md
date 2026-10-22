@@ -249,7 +249,9 @@ Verified locally on Node v22.22.3, with **no `node_modules` present**:
   reproduce all four byte for byte).
 - `example/gen.ts` is deterministic, and the committed Rust matches it exactly,
   so CI can assert the generated sources are never stale.
-- `runtime/*.rs` are byte-identical to hydent-lang's working copies.
+- 5 of the 6 `runtime/*.rs` files are byte-identical to hydent-lang's working
+  copies; `tracer.rs` drops three unused imports that hydent masks with a
+  crate-level `#![allow(unused)]`.
 - Static checks over `example/`: every `mod` declaration resolves, every
   `crate::` path names a real module, all 5 `GeneratedParser` hooks are
   implemented, all 13 `ASTVisitor` methods are, and every accessor the tests

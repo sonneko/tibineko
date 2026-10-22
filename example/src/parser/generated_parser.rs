@@ -6,6 +6,7 @@
 
 #![allow(unused_variables)]
 #![allow(clippy::match_single_binding)]
+#![allow(unused_imports)]
 
 use crate::parser::base_parser::BaseParser;
 use crate::parser::errors::IParseErr;

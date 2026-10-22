@@ -3,6 +3,7 @@
 
 use crate::diagnostic::stream::DiagnosticStream;
 use crate::parser::base_parser::BaseParser;
+use crate::parser::errors::IParseErr;
 use crate::parser::generated_ast;
 use crate::parser::generated_parser::GeneratedParser;
 use crate::parser::parse::Parser;
