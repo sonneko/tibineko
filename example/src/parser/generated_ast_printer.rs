@@ -4,7 +4,7 @@
 //  In "/src/parser/generated_ast_printer.rs"
 // ==========================================
 
-#![allow(unused_imports)]
+#![allow(unused_imports, unused_variables)]
 
 use crate::compiler::{arena::Arena, symbol::SymbolFactory, source_holder::SourceHolder};
 use crate::parser::generated_ast::*;

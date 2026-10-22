@@ -12,11 +12,21 @@ use crate::parser::tracer::NopeTracer;
 use crate::tokenizer::tokenize::Tokenizer;
 
 // --- tibineko runtime (copied; do not edit) -------------------------------
+// The runtime modules below are T1: byte-identical copies from
+// hydent-lang. Upstream is not clippy-clean under `-D warnings`, so the lints
+// are silenced on the module declarations instead of by patching vendored code:
+//   base_parser.rs:235  `optional`'s `parser_fn` does not need `mut`
+//   errors.rs:26        `IParseErr::build`'s `identifier` is unused (upstream
+//                       carries a `WARNING: identifier is ignored` comment)
+//   tracer.rs:14        `NopeTracer::trace`'s `name` is unused
 mod ast_node;
+#[allow(unused_mut)]
 mod base_parser;
+#[allow(unused_variables)]
 mod errors;
 mod recovery;
 pub mod token_stream;
+#[allow(unused_variables)]
 pub mod tracer;
 
 // --- tibineko generated output (regenerate with `node gen.ts`) ------------

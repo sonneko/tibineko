@@ -112,6 +112,7 @@ jobs:
                     "$(printf '%s' "$line" | sed 's/%/%25/g')"
                 done
           fi
+          awk '/^test result:/ { p += $4; f += $6 } END { printf "::notice title=unit tests::%d passed, %d failed\n", p, f }' /tmp/unit.log
           exit "$status"
 
       - name: Integration tests
@@ -128,16 +129,23 @@ jobs:
                     "$(printf '%s' "$line" | sed 's/%/%25/g')"
                 done
           fi
+          awk '/^test result:/ { p += $4; f += $6 } END { printf "::notice title=integration tests::%d passed, %d failed\n", p, f }' /tmp/integration.log
           exit "$status"
 
       - name: Test summary
         working-directory: example
-        run: cargo test --color=never
+        run: |
+          set +e
+          cargo test --color=never 2>&1 | tee /tmp/all.log
+          status=${PIPESTATUS[0]}
+          awk '/^test result:/ { p += $4; f += $6 } END { printf "::notice title=all example crate tests::%d passed, %d failed\n", p, f }' /tmp/all.log
+          exit "$status"
 
   # ---------------------------------------------------------------------------
-  # Lints. Advisory for now: the generated sources are not rustfmt-formatted
-  # and clippy has not been run over them before. Promote to required once
-  # clean.
+  # Lints. Advisory while the vendored runtime is not yet rustfmt-clean.
+  # The clippy lints inherited from hydent-lang are silenced at the module
+  # declarations in example/src/{parser,tokenizer}/mod.rs; promote to required
+  # once the whole tree is clean.
   # ---------------------------------------------------------------------------
   lint:
     name: Lint (advisory)
@@ -171,5 +179,15 @@ jobs:
           exit "$status"
 
       - name: Formatting
+        if: always()
         working-directory: example
-        run: cargo fmt --all -- --check
+        run: |
+          set +e
+          cargo fmt --all -- --check 2>&1 | tee /tmp/fmt.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            head -60 /tmp/fmt.log | while IFS= read -r line; do
+              printf '::error title=rustfmt::%s\n' "$(printf '%s' "$line" | sed 's/%/%25/g')"
+            done
+          fi
+          exit "$status"

@@ -10,7 +10,7 @@ export class ASTPrinterGenerator {
         ret += `//  In "/src/parser/generated_ast_printer.rs"\n`;
         ret += `// ==========================================\n\n`;
         // Inner attributes must precede every item, so this goes first.
-        ret += "#![allow(unused_imports)]\n\n";
+        ret += "#![allow(unused_imports, unused_variables)]\n\n";
         // TIBINEKO-FORK: module paths of the consumer crate. Edit if your runtime lives elsewhere.
         ret += "use crate::compiler::{arena::Arena, symbol::SymbolFactory, source_holder::SourceHolder};\n";
         ret += "use crate::parser::generated_ast::*;\n";
