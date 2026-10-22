@@ -1,0 +1,422 @@
+[
+  {
+    "kind": "product",
+    "functionName": "BoolLiteral",
+    "astTypeName": "BoolLiteral",
+    "syncPointsTerminals": [
+      "Token::Delimiter(Delimiter::RightParen)",
+      "Token::Delimiter(Delimiter::Semicolon)",
+      "Token::Delimiter(Delimiter::Comma)",
+      "Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftParen)",
+      "Token::Delimiter(Delimiter::RightBracket)"
+    ],
+    "firstAndFollowConflict": true,
+    "firstTerminals": [
+      "Token::Literal(Literal::BoolLiteral($bool$))"
+    ],
+    "elements": [
+      {
+        "kind": "terminal",
+        "tokenTypeName": "Token::Literal(Literal::BoolLiteral($bool$))"
+      }
+    ]
+  },
+  {
+    "kind": "product",
+    "functionName": "Comma",
+    "astTypeName": "Comma",
+    "syncPointsTerminals": [
+      "Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftParen)",
+      "Token::Delimiter(Delimiter::RightBracket)"
+    ],
+    "firstAndFollowConflict": false,
+    "firstTerminals": [
+      "Token::Delimiter(Delimiter::Comma)"
+    ],
+    "elements": [
+      {
+        "kind": "terminal",
+        "tokenTypeName": "Token::Delimiter(Delimiter::Comma)"
+      }
+    ]
+  },
+  {
+    "kind": "product",
+    "functionName": "Document",
+    "astTypeName": "Document",
+    "syncPointsTerminals": [],
+    "firstAndFollowConflict": false,
+    "firstTerminals": [
+      "Token::Identifier($Span$),Token::Operator(Operator::Colon)",
+      "Token::Comment(Comment::DocComment($Span$))",
+      "Token::Comment(Comment::DocComment($Span$)),Token::Identifier($Span$)",
+      "Token::Comment(Comment::DocComment($Span$)),Token::Comment(Comment::DocComment($Span$))"
+    ],
+    "elements": [
+      {
+        "kind": "repeat",
+        "astTypeName": "Entry",
+        "name": "entries"
+      }
+    ]
+  },
+  {
+    "kind": "branch",
+    "functionName": "Entry",
+    "astTypeName": "Entry",
+    "expectedTerminals": [
+      "Token::Comment(Comment::DocComment($Span$))",
+      "Token::Identifier($Span$)"
+    ],
+    "syncPointsTerminals": [
+      "Token::Comment(Comment::DocComment($Span$))",
+      "Token::Identifier($Span$)"
+    ],
+    "firstTerminals": [
+      "Token::Identifier($Span$),Token::Operator(Operator::Colon)",
+      "Token::Comment(Comment::DocComment($Span$))"
+    ],
+    "firstAndFollowConflict": true,
+    "branchesJudgebleInPeek0": [
+      {
+        "astTypeName": "Note",
+        "firstTerminal": "Token::Comment(Comment::DocComment($Span$))",
+        "isBoxed": false
+      },
+      {
+        "astTypeName": "Pair",
+        "firstTerminal": "Token::Identifier($Span$)",
+        "isBoxed": false
+      }
+    ],
+    "branchesJudgebleInPeek1": [],
+    "branchesFallbackInPeek1": [],
+    "unmatchedFallback": null,
+    "branchesNeedBacktrack": []
+  },
+  {
+    "kind": "product",
+    "functionName": "GroupedValue",
+    "astTypeName": "GroupedValue",
+    "syncPointsTerminals": [
+      "Token::Delimiter(Delimiter::RightParen)",
+      "Token::Delimiter(Delimiter::Semicolon)",
+      "Token::Delimiter(Delimiter::Comma)",
+      "Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftParen)",
+      "Token::Delimiter(Delimiter::RightBracket)"
+    ],
+    "firstAndFollowConflict": true,
+    "firstTerminals": [
+      "Token::Delimiter(Delimiter::LeftParen),Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Delimiter(Delimiter::LeftParen),Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Delimiter(Delimiter::LeftParen),Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftParen),Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftParen),Token::Delimiter(Delimiter::LeftParen)"
+    ],
+    "elements": [
+      {
+        "kind": "terminal",
+        "tokenTypeName": "Token::Delimiter(Delimiter::LeftParen)"
+      },
+      {
+        "kind": "boxed",
+        "astTypeName": "Value",
+        "name": "value"
+      },
+      {
+        "kind": "terminal",
+        "tokenTypeName": "Token::Delimiter(Delimiter::RightParen)"
+      }
+    ]
+  },
+  {
+    "kind": "product",
+    "functionName": "Identifier",
+    "astTypeName": "Identifier",
+    "syncPointsTerminals": [
+      "Token::Operator(Operator::Colon)"
+    ],
+    "firstAndFollowConflict": false,
+    "firstTerminals": [
+      "Token::Identifier($Span$)"
+    ],
+    "elements": [
+      {
+        "kind": "terminal",
+        "tokenTypeName": "Token::Identifier($Span$)"
+      }
+    ]
+  },
+  {
+    "kind": "product",
+    "functionName": "ListValue",
+    "astTypeName": "ListValue",
+    "syncPointsTerminals": [
+      "Token::Delimiter(Delimiter::RightParen)",
+      "Token::Delimiter(Delimiter::Semicolon)",
+      "Token::Delimiter(Delimiter::Comma)",
+      "Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftParen)",
+      "Token::Delimiter(Delimiter::RightBracket)"
+    ],
+    "firstAndFollowConflict": true,
+    "firstTerminals": [
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Delimiter(Delimiter::RightBracket)",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Delimiter(Delimiter::LeftParen)"
+    ],
+    "elements": [
+      {
+        "kind": "terminal",
+        "tokenTypeName": "Token::Delimiter(Delimiter::LeftBracket)"
+      },
+      {
+        "kind": "repeat",
+        "astTypeName": "ValueItem",
+        "name": "items"
+      },
+      {
+        "kind": "terminal",
+        "tokenTypeName": "Token::Delimiter(Delimiter::RightBracket)"
+      }
+    ]
+  },
+  {
+    "kind": "product",
+    "functionName": "Note",
+    "astTypeName": "Note",
+    "syncPointsTerminals": [
+      "Token::Identifier($Span$)",
+      "Token::Comment(Comment::DocComment($Span$))"
+    ],
+    "firstAndFollowConflict": true,
+    "firstTerminals": [
+      "Token::Comment(Comment::DocComment($Span$))"
+    ],
+    "elements": [
+      {
+        "kind": "terminal",
+        "tokenTypeName": "Token::Comment(Comment::DocComment($Span$))"
+      }
+    ]
+  },
+  {
+    "kind": "product",
+    "functionName": "NumberLiteral",
+    "astTypeName": "NumberLiteral",
+    "syncPointsTerminals": [
+      "Token::Delimiter(Delimiter::RightParen)",
+      "Token::Delimiter(Delimiter::Semicolon)",
+      "Token::Delimiter(Delimiter::Comma)",
+      "Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftParen)",
+      "Token::Delimiter(Delimiter::RightBracket)"
+    ],
+    "firstAndFollowConflict": true,
+    "firstTerminals": [
+      "Token::Literal(Literal::NumberLiteral($i64$))"
+    ],
+    "elements": [
+      {
+        "kind": "terminal",
+        "tokenTypeName": "Token::Literal(Literal::NumberLiteral($i64$))"
+      }
+    ]
+  },
+  {
+    "kind": "product",
+    "functionName": "Pair",
+    "astTypeName": "Pair",
+    "syncPointsTerminals": [
+      "Token::Identifier($Span$)",
+      "Token::Comment(Comment::DocComment($Span$))"
+    ],
+    "firstAndFollowConflict": true,
+    "firstTerminals": [
+      "Token::Identifier($Span$),Token::Operator(Operator::Colon)"
+    ],
+    "elements": [
+      {
+        "kind": "normal",
+        "astTypeName": "Identifier",
+        "name": "key"
+      },
+      {
+        "kind": "terminal",
+        "tokenTypeName": "Token::Operator(Operator::Colon)"
+      },
+      {
+        "kind": "normal",
+        "astTypeName": "Value",
+        "name": "value"
+      },
+      {
+        "kind": "terminal",
+        "tokenTypeName": "Token::Delimiter(Delimiter::Semicolon)"
+      }
+    ]
+  },
+  {
+    "kind": "product",
+    "functionName": "StringLiteral",
+    "astTypeName": "StringLiteral",
+    "syncPointsTerminals": [
+      "Token::Delimiter(Delimiter::RightParen)",
+      "Token::Delimiter(Delimiter::Semicolon)",
+      "Token::Delimiter(Delimiter::Comma)",
+      "Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftParen)",
+      "Token::Delimiter(Delimiter::RightBracket)"
+    ],
+    "firstAndFollowConflict": true,
+    "firstTerminals": [
+      "Token::Literal(Literal::StringLiteral($Span$))"
+    ],
+    "elements": [
+      {
+        "kind": "terminal",
+        "tokenTypeName": "Token::Literal(Literal::StringLiteral($Span$))"
+      }
+    ]
+  },
+  {
+    "kind": "branch",
+    "functionName": "Value",
+    "astTypeName": "Value",
+    "expectedTerminals": [
+      "Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftParen)",
+      "Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Literal(Literal::StringLiteral($Span$))"
+    ],
+    "syncPointsTerminals": [
+      "Token::Delimiter(Delimiter::Comma)",
+      "Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftParen)",
+      "Token::Delimiter(Delimiter::RightBracket)",
+      "Token::Delimiter(Delimiter::RightParen)",
+      "Token::Delimiter(Delimiter::Semicolon)",
+      "Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Literal(Literal::StringLiteral($Span$))"
+    ],
+    "firstTerminals": [
+      "Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Delimiter(Delimiter::RightBracket)",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftParen),Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Delimiter(Delimiter::LeftParen),Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Delimiter(Delimiter::LeftParen),Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftParen),Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Delimiter(Delimiter::LeftParen)",
+      "Token::Delimiter(Delimiter::LeftParen),Token::Delimiter(Delimiter::LeftParen)"
+    ],
+    "firstAndFollowConflict": true,
+    "branchesJudgebleInPeek0": [
+      {
+        "astTypeName": "ListValue",
+        "firstTerminal": "Token::Delimiter(Delimiter::LeftBracket)",
+        "isBoxed": false
+      },
+      {
+        "astTypeName": "GroupedValue",
+        "firstTerminal": "Token::Delimiter(Delimiter::LeftParen)",
+        "isBoxed": false
+      },
+      {
+        "astTypeName": "BoolLiteral",
+        "firstTerminal": "Token::Literal(Literal::BoolLiteral($bool$))",
+        "isBoxed": false
+      },
+      {
+        "astTypeName": "NumberLiteral",
+        "firstTerminal": "Token::Literal(Literal::NumberLiteral($i64$))",
+        "isBoxed": false
+      },
+      {
+        "astTypeName": "StringLiteral",
+        "firstTerminal": "Token::Literal(Literal::StringLiteral($Span$))",
+        "isBoxed": false
+      }
+    ],
+    "branchesJudgebleInPeek1": [],
+    "branchesFallbackInPeek1": [],
+    "unmatchedFallback": null,
+    "branchesNeedBacktrack": []
+  },
+  {
+    "kind": "product",
+    "functionName": "ValueItem",
+    "astTypeName": "ValueItem",
+    "syncPointsTerminals": [
+      "Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftParen)",
+      "Token::Delimiter(Delimiter::RightBracket)"
+    ],
+    "firstAndFollowConflict": true,
+    "firstTerminals": [
+      "Token::Literal(Literal::NumberLiteral($i64$)),Token::Delimiter(Delimiter::Comma)",
+      "Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Literal(Literal::StringLiteral($Span$)),Token::Delimiter(Delimiter::Comma)",
+      "Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Literal(Literal::BoolLiteral($bool$)),Token::Delimiter(Delimiter::Comma)",
+      "Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Delimiter(Delimiter::RightBracket)",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftParen),Token::Literal(Literal::NumberLiteral($i64$))",
+      "Token::Delimiter(Delimiter::LeftParen),Token::Literal(Literal::StringLiteral($Span$))",
+      "Token::Delimiter(Delimiter::LeftParen),Token::Literal(Literal::BoolLiteral($bool$))",
+      "Token::Delimiter(Delimiter::LeftParen),Token::Delimiter(Delimiter::LeftBracket)",
+      "Token::Delimiter(Delimiter::LeftBracket),Token::Delimiter(Delimiter::LeftParen)",
+      "Token::Delimiter(Delimiter::LeftParen),Token::Delimiter(Delimiter::LeftParen)"
+    ],
+    "elements": [
+      {
+        "kind": "normal",
+        "astTypeName": "Value",
+        "name": "value"
+      },
+      {
+        "kind": "option",
+        "astTypeName": "Comma",
+        "name": "comma"
+      }
+    ]
+  }
+]

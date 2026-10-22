@@ -180,10 +180,16 @@ T1 は上書きされるので、あなたの編集は T2/T3 に閉じていれ�
 
 1. **ジェネレータを依存ゼロにする** — import 27+1箇所に `.ts`、10文を `import type` 分割。
    検収: `node_modules` 無しで `node gen/index.ts` と `node gen/self_test.ts` が通る（**実測済み**）。
+   → **完了**。`gen/` を参照。`node gen/self_test.ts` = 16 passed / 0 failed。
 2. **tibineko レポジトリに `gen/` `runtime/` `seed/` `example/` を配置し、`example/` で最小言語を生成してみる。**
    検収: example が `cargo build` まで通る。
+   → **生成までは完了**。`example/` は13ルールから802行のRustを決定論的に生成する。
+   **`cargo build` は未達**（この環境に cargo がない。`example/` は crate ではなく生成デモ）。
 3. **hydent-lang を example と同じ構成に寄せる** — 生成物をコミットし、`.gitignore` から外す。
    検収: 新鮮な clone で Node を使わず `cargo build && cargo test` が通る。
+   → **未着手**。hydent-lang 側の変更を伴う。
+   ただし本レポジトリの `gen/` が hydent-lang の文法に対して
+   **元パイプラインとバイト単位で同一の出力**を出すことは確認済み（付録参照）。
 
 v1 の6フェーズは消えた。
 
@@ -224,7 +230,7 @@ vendoring 前提だと「tibineko 側で直すべき制約」ではなく
 
 ## 付録: 検証記録
 
-`hydent-lang@bb9a359` に対して実施。
+### A. 切り出し前（`hydent-lang@bb9a359` に対して実施）
 
 ```bash
 git clone https://github.com/sonneko/hydent-lang.git
@@ -239,5 +245,30 @@ node ./src/self_test.ts        # → 16 passed / 0 failed / exit 0
 - `git ls-files` で生成4ファイルが未追跡であることを確認（§1）
 - フォーク面 40行は `grep` で実測（§5）
 
-未検証: この環境に `cargo` がないため、Rust 側のビルド・テストは実行していない
-（Node v22.22.3 のみ利用可）。
+### B. 切り出し後（本レポジトリに対して実施）
+
+```bash
+node gen/self_test.ts          # → 16 passed / 0 failed / exit 0（node_modules ゼロ）
+cd example && node gen.ts      # → 7ファイル生成、802行のRust
+```
+
+- **回帰**: 本レポジトリの `gen/` に hydent-lang の文法とトークン表を与えると、
+  元パイプラインと**バイト単位で同一**の出力になる（4ファイルの md5 一致）：
+  ```
+  416406c581f4f2e76b0aae56b61d24d3  generated_ast.rs
+  72b668719ef438457bcd143c5304e640  generated_parser.rs
+  2c5f54fab0a5020401d1f46e23f94ecf  generated_ast_printer.rs
+  0718f789dc687448bf718bb597662e0c  generated_tokenmap.rs
+  ```
+  ただし hydent-lang の `tokenmap.csv` は重複キー `"_"`（89行目と105行目）を含むため、
+  厳格化した `TokenMap.fromCsv` がこれを検出して例外を投げる。重複を除いた104行で実行した。
+- **決定論**: `example/` を2回生成し md5 一致を確認。
+- **循環検出**: `example/grammar.tibineko` の `Value -> GroupedValue -> Value` が
+  `ArenaBox<Value>` に box されること、list 経由の循環は box されないことを確認。
+- **TIBINEKO-FORK**: 13マーカー / 6ファイル。`grep -rn TIBINEKO-FORK gen/` で一覧できる。
+
+### 未検証
+
+この環境に `cargo` がないため、**Rust 側のビルド・テストは一切実行していない**
+（Node v22.22.3 のみ利用可）。`runtime/*.rs` は hydent-lang の動作実績のあるファイルと
+バイト単位で同一だが、`example/generated/*.rs` を実 crate でコンパイルした実績はまだない。

@@ -1,0 +1,231 @@
+[
+  {
+    "kind": "Product",
+    "name": "Document",
+    "members": [
+      {
+        "kind": "Field",
+        "name": "entries",
+        "type": {
+          "name": "Entry",
+          "modifier": "List"
+        },
+        "note": ""
+      }
+    ]
+  },
+  {
+    "kind": "Branch",
+    "name": "Entry",
+    "variants": [
+      {
+        "name": "Pair",
+        "note": ""
+      },
+      {
+        "name": "Note",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "kind": "Product",
+    "name": "Pair",
+    "members": [
+      {
+        "kind": "Field",
+        "name": "key",
+        "type": {
+          "name": "Identifier",
+          "modifier": "None"
+        },
+        "note": ""
+      },
+      {
+        "kind": "Terminal",
+        "value": ":",
+        "note": ""
+      },
+      {
+        "kind": "Field",
+        "name": "value",
+        "type": {
+          "name": "Value",
+          "modifier": "None"
+        },
+        "note": ""
+      },
+      {
+        "kind": "Terminal",
+        "value": ";",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "kind": "Branch",
+    "name": "Value",
+    "variants": [
+      {
+        "name": "NumberLiteral",
+        "note": ""
+      },
+      {
+        "name": "StringLiteral",
+        "note": ""
+      },
+      {
+        "name": "BoolLiteral",
+        "note": ""
+      },
+      {
+        "name": "ListValue",
+        "note": ""
+      },
+      {
+        "name": "GroupedValue",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "kind": "Product",
+    "name": "GroupedValue",
+    "members": [
+      {
+        "kind": "Terminal",
+        "value": "(",
+        "note": ""
+      },
+      {
+        "kind": "Field",
+        "name": "value",
+        "type": {
+          "name": "Value",
+          "modifier": "None"
+        },
+        "note": ""
+      },
+      {
+        "kind": "Terminal",
+        "value": ")",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "kind": "Product",
+    "name": "ListValue",
+    "members": [
+      {
+        "kind": "Terminal",
+        "value": "[",
+        "note": ""
+      },
+      {
+        "kind": "Field",
+        "name": "items",
+        "type": {
+          "name": "ValueItem",
+          "modifier": "List"
+        },
+        "note": ""
+      },
+      {
+        "kind": "Terminal",
+        "value": "]",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "kind": "Product",
+    "name": "ValueItem",
+    "members": [
+      {
+        "kind": "Field",
+        "name": "value",
+        "type": {
+          "name": "Value",
+          "modifier": "None"
+        },
+        "note": ""
+      },
+      {
+        "kind": "Field",
+        "name": "comma",
+        "type": {
+          "name": "Comma",
+          "modifier": "Option"
+        },
+        "note": ""
+      }
+    ]
+  },
+  {
+    "kind": "Product",
+    "name": "Comma",
+    "members": [
+      {
+        "kind": "Terminal",
+        "value": ",",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "kind": "Product",
+    "name": "Note",
+    "members": [
+      {
+        "kind": "Terminal",
+        "value": "#note",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "kind": "Product",
+    "name": "Identifier",
+    "members": [
+      {
+        "kind": "Terminal",
+        "value": "#identifier",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "kind": "Product",
+    "name": "NumberLiteral",
+    "members": [
+      {
+        "kind": "Terminal",
+        "value": "#number",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "kind": "Product",
+    "name": "StringLiteral",
+    "members": [
+      {
+        "kind": "Terminal",
+        "value": "#string",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "kind": "Product",
+    "name": "BoolLiteral",
+    "members": [
+      {
+        "kind": "Terminal",
+        "value": "#bool",
+        "note": ""
+      }
+    ]
+  }
+]

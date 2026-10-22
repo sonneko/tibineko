@@ -1,0 +1,58 @@
+// A tiny "config file" language, used to prove tibineko is not
+// hydent-specific. It exercises every construct the analyzer handles:
+// branch, product, list (*), option (?), recursion (which forces boxing),
+// and a hand-written node (`Identifier`).
+
+product Document {
+    entries: *Entry
+}
+
+branch Entry {
+    Pair
+    Note
+}
+
+product Pair {
+    key: Identifier
+    ":"
+    value: Value
+    ";"
+}
+
+// Recursive: Document -> Entry -> Pair -> Value -> ListValue -> ValueItem -> Value.
+// tibineko's cycle detection must box this edge or the Rust struct is infinite.
+branch Value {
+    NumberLiteral
+    StringLiteral
+    BoolLiteral
+    ListValue
+    GroupedValue
+}
+
+// Genuine inline recursion: Value -> GroupedValue -> Value, with no list in
+// between. tibineko must box this edge or the Rust enum has infinite size.
+product GroupedValue {
+    "("
+    value: Value
+    ")"
+}
+
+product ListValue {
+    "["
+    items: *ValueItem
+    "]"
+}
+
+product ValueItem {
+    value: Value
+    comma: ?Comma
+}
+
+product Comma with ","
+
+product Note with "#note"
+
+product Identifier with "#identifier"
+product NumberLiteral with "#number"
+product StringLiteral with "#string"
+product BoolLiteral with "#bool"
