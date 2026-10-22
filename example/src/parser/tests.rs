@@ -8,7 +8,7 @@ use crate::parser::parse_source;
 fn parses_an_empty_document() {
     let (ast, diagnostics) = parse_source("");
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
-    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).collect();
+    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect();
     assert!(entries.is_empty());
 }
 
@@ -17,7 +17,7 @@ fn parses_a_single_pair() {
     let (ast, diagnostics) = parse_source("port: 8080;");
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
 
-    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).collect();
+    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect();
     assert_eq!(entries.len(), 1);
 
     match entries[0] {
@@ -38,7 +38,7 @@ fn parses_each_value_shape() {
     let (ast, diagnostics) = parse_source(source);
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
 
-    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).collect();
+    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect();
     assert_eq!(entries.len(), 5, "one pair per key");
 
     let kinds: Vec<&str> = entries
@@ -65,7 +65,7 @@ fn keeps_a_doc_comment_as_an_entry() {
     let (ast, diagnostics) = parse_source("/// a note\nport: 1;");
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
 
-    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).collect();
+    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect();
     assert_eq!(entries.len(), 2, "note and pair should both be entries");
     assert!(matches!(entries[0], Entry::Note(_)));
     assert!(matches!(entries[1], Entry::Pair(_)));
@@ -78,7 +78,7 @@ fn walks_boxed_recursive_values() {
     let (ast, diagnostics) = parse_source("deep: ((7));");
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
 
-    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).collect();
+    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect();
     let pair = match entries[0] {
         Entry::Pair(pair) => pair,
         other => panic!("expected Pair, got {other:?}"),
@@ -104,7 +104,7 @@ fn parses_a_nested_list_and_ignores_a_trailing_comma() {
     let (ast, diagnostics) = parse_source("nested: [1, [2, 3],];");
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
 
-    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).collect();
+    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect();
     let pair = match entries[0] {
         Entry::Pair(pair) => pair,
         other => panic!("expected Pair, got {other:?}"),
@@ -114,7 +114,7 @@ fn parses_a_nested_list_and_ignores_a_trailing_comma() {
         other => panic!("expected ListValue, got {other:?}"),
     };
 
-    let items: Vec<_> = list.items().into_ref(ast.arena()).collect();
+    let items: Vec<_> = list.items().into_ref(ast.arena()).map(|e| *e).collect();
     assert_eq!(items.len(), 2, "trailing comma should not add an item");
 
     // The second item is itself a list of two.
@@ -132,7 +132,7 @@ fn recovers_and_keeps_parsing() {
     let (ast, diagnostics) = parse_source("a: 1\nb: 2;");
     assert!(!diagnostics.is_empty(), "a missing `;` should be reported");
 
-    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).collect();
+    let entries: Vec<_> = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect();
     let pairs = entries
         .iter()
         .filter(|e| matches!(e, Entry::Pair(_)))

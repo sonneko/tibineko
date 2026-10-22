@@ -17,7 +17,7 @@ nested: [1, [2, 3], (4)];
 
 fn entries(source: &str) -> Vec<Entry> {
     let (ast, _) = parse_source(source);
-    ast.document().entries().into_ref(ast.arena()).collect()
+    ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect()
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn parses_a_whole_document_without_diagnostics() {
     );
 
     // One note plus five key/value pairs.
-    let parsed = ast.document().entries().into_ref(ast.arena()).collect::<Vec<_>>();
+    let parsed = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect::<Vec<_>>();
     assert_eq!(parsed.len(), 6, "note + 5 pairs");
 
     let notes = parsed.iter().filter(|e| matches!(e, Entry::Note(_))).count();
@@ -43,7 +43,7 @@ fn resolves_keys_through_the_symbol_table() {
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
 
     let mut keys = Vec::new();
-    for entry in ast.document().entries().into_ref(ast.arena()) {
+    for entry in ast.document().entries().into_ref(ast.arena()).map(|e| *e) {
         if let Entry::Pair(pair) = entry {
             keys.push(ast.symbols().get(&pair.key().symbol).to_owned());
         }
@@ -77,7 +77,7 @@ fn walks_a_deeply_nested_value() {
     let (ast, diagnostics) = parse_source("nested: [1, [2, 3], (4)];");
     assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
 
-    let parsed = ast.document().entries().into_ref(ast.arena()).collect::<Vec<_>>();
+    let parsed = ast.document().entries().into_ref(ast.arena()).map(|e| *e).collect::<Vec<_>>();
     let pair = match parsed[0] {
         Entry::Pair(pair) => pair,
         other => panic!("expected Pair, got {other:?}"),
@@ -87,7 +87,7 @@ fn walks_a_deeply_nested_value() {
         other => panic!("expected ListValue, got {other:?}"),
     };
 
-    let items = list.items().into_ref(ast.arena()).collect::<Vec<_>>();
+    let items = list.items().into_ref(ast.arena()).map(|e| *e).collect::<Vec<_>>();
     assert_eq!(items.len(), 3);
 
     // items[2] is a GroupedValue wrapping NumberLiteral(4) -- the boxed cycle.
@@ -134,6 +134,7 @@ fn a_broken_tail_does_not_lose_what_came_before() {
         .document()
         .entries()
         .into_ref(ast.arena())
+        .map(|e| *e)
         .filter_map(|e| match e {
             Entry::Pair(p) => Some(ast.symbols().get(&p.key().symbol).to_owned()),
             _ => None,
@@ -158,6 +159,7 @@ fn garbage_in_the_middle_still_yields_a_document() {
         .document()
         .entries()
         .into_ref(ast.arena())
+        .map(|e| *e)
         .filter(|e| matches!(e, Entry::Pair(_)))
         .count();
     assert!(pairs >= 1, "the document should not be empty: {pairs} pairs");
