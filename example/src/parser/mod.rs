@@ -98,13 +98,15 @@ pub fn parse_source(source: &str) -> (Ast<'_>, Vec<Diagnostic>) {
     let tokenizer = Tokenizer::new(source, &mut symbols);
     let (tokens, line_starts) = tokenizer.tokenize(&mut diagnostic_stream);
     let stream = token_stream::TokenStream::new(tokens);
-    let mut ast_arena = Arena::new();
+    // `Arena` allocates through interior mutability, so the context only needs
+    // a shared reference.
+    let ast_arena = Arena::new();
 
     let mut parser: Parser<'_, '_, '_, _, NopeTracer> = Parser::new(
         stream,
         crate::compiler::context::CompilerFrontendContext::new(
             source,
-            &mut ast_arena,
+            &ast_arena,
             &mut symbols,
         ),
         &mut diagnostic_stream,

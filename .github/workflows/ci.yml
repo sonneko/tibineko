@@ -188,7 +188,9 @@ jobs:
           # `generated_*` files are machine output; reformatting them by hand
           # would be undone by the next `node gen.ts`.
           files=$(git ls-files example/src example/tests | grep '\.rs$' | grep -v '/generated_')
-          rustfmt --edition 2021 --check $files 2>&1 | tee /tmp/fmt.log
+          # --skip-children: without it rustfmt follows the `mod generated_ast;`
+          # declarations and reformats the machine output anyway.
+          rustfmt --edition 2021 --skip-children --check $files 2>&1 | tee /tmp/fmt.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             head -60 /tmp/fmt.log | while IFS= read -r line; do
