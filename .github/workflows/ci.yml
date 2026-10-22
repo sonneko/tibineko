@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  CARGO_TERM_COLOR: always
+  CARGO_TERM_COLOR: never
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -61,6 +61,9 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # The example crate: unit tests (in-crate) and integration tests (tests/).
+  #
+  # Failures are re-emitted as workflow annotations, because the raw log is
+  # easier to miss than a red ❌ with the compiler message attached.
   # ---------------------------------------------------------------------------
   example:
     name: Example crate
@@ -76,23 +79,60 @@ jobs:
 
       - name: Build
         working-directory: example
-        run: cargo build
+        run: |
+          set +e
+          cargo build --color=never 2>&1 | tee /tmp/build.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            grep -E '^error(\[E[0-9]+\])?:|^warning: unused|^ *--> ' /tmp/build.log \
+              | head -80 \
+              | while IFS= read -r line; do
+                  printf '::error title=cargo build::%s\n' \
+                    "$(printf '%s' "$line" | sed 's/%/%25/g')"
+                done
+          fi
+          exit "$status"
 
       - name: Unit tests
         working-directory: example
-        run: cargo test --lib --verbose
+        run: |
+          set +e
+          cargo test --lib --color=never 2>&1 | tee /tmp/unit.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            grep -E '^error(\[E[0-9]+\])?:|^test .* FAILED$|^---- .* stdout ----|panicked at|assertion .*failed|^ *--> ' /tmp/unit.log \
+              | head -80 \
+              | while IFS= read -r line; do
+                  printf '::error title=cargo test --lib::%s\n' \
+                    "$(printf '%s' "$line" | sed 's/%/%25/g')"
+                done
+          fi
+          exit "$status"
 
       - name: Integration tests
         working-directory: example
-        run: cargo test --test parse --verbose
+        run: |
+          set +e
+          cargo test --test parse --color=never 2>&1 | tee /tmp/integration.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            grep -E '^error(\[E[0-9]+\])?:|^test .* FAILED$|^---- .* stdout ----|panicked at|assertion .*failed|^ *--> ' /tmp/integration.log \
+              | head -80 \
+              | while IFS= read -r line; do
+                  printf '::error title=cargo test --test parse::%s\n' \
+                    "$(printf '%s' "$line" | sed 's/%/%25/g')"
+                done
+          fi
+          exit "$status"
 
       - name: Test summary
         working-directory: example
-        run: cargo test --verbose
+        run: cargo test --color=never
 
   # ---------------------------------------------------------------------------
   # Lints. Advisory for now: the generated sources are not rustfmt-formatted
-  # and clippy has not yet been run over them. Promote to required once clean.
+  # and clippy has not been run over them before. Promote to required once
+  # clean.
   # ---------------------------------------------------------------------------
   lint:
     name: Lint (advisory)
@@ -111,7 +151,19 @@ jobs:
 
       - name: Clippy
         working-directory: example
-        run: cargo clippy --all-targets -- -D warnings
+        run: |
+          set +e
+          cargo clippy --all-targets --color=never -- -D warnings 2>&1 | tee /tmp/clippy.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            grep -E '^error(\[E[0-9]+\])?:|^ *--> ' /tmp/clippy.log \
+              | head -80 \
+              | while IFS= read -r line; do
+                  printf '::error title=clippy::%s\n' \
+                    "$(printf '%s' "$line" | sed 's/%/%25/g')"
+                done
+          fi
+          exit "$status"
 
       - name: Formatting
         working-directory: example
