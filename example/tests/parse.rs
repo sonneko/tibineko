@@ -50,8 +50,14 @@ fn parses_a_whole_document_without_diagnostics() {
     let parsed = entries_of(&ast);
     assert_eq!(parsed.len(), 6, "note + 5 pairs");
 
-    let notes = parsed.iter().filter(|e| matches!(e, Entry::Note(_))).count();
-    let pairs = parsed.iter().filter(|e| matches!(e, Entry::Pair(_))).count();
+    let notes = parsed
+        .iter()
+        .filter(|e| matches!(e, Entry::Note(_)))
+        .count();
+    let pairs = parsed
+        .iter()
+        .filter(|e| matches!(e, Entry::Pair(_)))
+        .count();
     assert_eq!((notes, pairs), (1, 5));
 }
 
