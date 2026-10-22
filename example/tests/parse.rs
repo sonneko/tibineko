@@ -126,7 +126,10 @@ fn renders_the_ast_as_json() {
     let json = ast.to_string();
 
     // Keys are AST type names, not grammar field names.
-    assert!(json.starts_with(r#"{"type":"Document","Entry":["#), "{json}");
+    assert!(
+        json.starts_with(r#"{"type":"Document","Entry":["#),
+        "{json}"
+    );
     assert!(json.contains(r#""type":"Pair","Identifier""#), "{json}");
     assert!(json.contains(r#""kind":"Pair""#), "{json}");
     assert!(json.contains(r#""kind":"Note""#), "{json}");
@@ -146,7 +149,10 @@ fn renders_the_ast_as_json() {
 #[test]
 fn a_broken_tail_does_not_lose_what_came_before() {
     let (ast, diagnostics) = parse_source("good: 1;\nalso_good: 2;\ntruncated: ");
-    assert!(!diagnostics.is_empty(), "the truncated pair should be reported");
+    assert!(
+        !diagnostics.is_empty(),
+        "the truncated pair should be reported"
+    );
 
     let keys: Vec<String> = ast
         .document()
@@ -180,7 +186,10 @@ fn garbage_in_the_middle_still_yields_a_document() {
         .map(|e| *e)
         .filter(|e| matches!(e, Entry::Pair(_)))
         .count();
-    assert!(pairs >= 1, "the document should not be empty: {pairs} pairs");
+    assert!(
+        pairs >= 1,
+        "the document should not be empty: {pairs} pairs"
+    );
 }
 
 #[test]

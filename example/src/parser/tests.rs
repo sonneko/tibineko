@@ -156,13 +156,19 @@ fn recovers_and_keeps_parsing() {
         .iter()
         .filter(|e| matches!(e, Entry::Pair(_)))
         .count();
-    assert!(pairs >= 1, "recovery should keep at least one pair, got {pairs}");
+    assert!(
+        pairs >= 1,
+        "recovery should keep at least one pair, got {pairs}"
+    );
 }
 
 #[test]
 fn rejects_garbage() {
     let (_, diagnostics) = parse_source("}}} not: a: config");
-    assert!(!diagnostics.is_empty(), "garbage should produce diagnostics");
+    assert!(
+        !diagnostics.is_empty(),
+        "garbage should produce diagnostics"
+    );
 }
 
 /// Guards the printer against silently drifting from the AST shape. The
