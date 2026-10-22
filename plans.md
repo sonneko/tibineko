@@ -252,15 +252,19 @@ node gen/self_test.ts          # → 16 passed / 0 failed / exit 0（node_module
 cd example && node gen.ts      # → 7ファイル生成、802行のRust
 ```
 
-- **回帰**: 本レポジトリの `gen/` に hydent-lang の文法とトークン表を与えると、
-  元パイプラインと**バイト単位で同一**の出力になる（4ファイルの md5 一致）：
+- **回帰**: 本レポジトリの `gen/` に hydent-lang の文法とトークン表を与えた出力を、
+  改変前ジェネレータの出力と突き合わせた。
+  `generated_parser.rs` と `generated_ast_printer.rs` は**バイト単位で同一**。
+  `generated_ast.rs` と `generated_tokenmap.rs` の差分は、後から追加した
+  `#![allow(...)]` ヘッダのみ（`diff` で確認）。改変前ジェネレータは4ファイル
+  すべてを元パイプラインとバイト単位で同一に再現する。
   ```
-  416406c581f4f2e76b0aae56b61d24d3  generated_ast.rs
-  72b668719ef438457bcd143c5304e640  generated_parser.rs
-  2c5f54fab0a5020401d1f46e23f94ecf  generated_ast_printer.rs
-  0718f789dc687448bf718bb597662e0c  generated_tokenmap.rs
+  72b668719ef438457bcd143c5304e640  generated_parser.rs       (一致)
+  2c5f54fab0a5020401d1f46e23f94ecf  generated_ast_printer.rs  (一致)
+  416406c581f4f2e76b0aae56b61d24d3  generated_ast.rs          (allow 1行のみ差分)
+  0718f789dc687448bf718bb597662e0c  generated_tokenmap.rs     (allow 3行のみ差分)
   ```
-  ただし hydent-lang の `tokenmap.csv` は重複キー `"_"`（89行目と105行目）を含むため、
+  なお hydent-lang の `tokenmap.csv` は重複キー `"_"`（89行目と105行目）を含むため、
   厳格化した `TokenMap.fromCsv` がこれを検出して例外を投げる。重複を除いた104行で実行した。
 - **決定論**: `example/` を2回生成し md5 一致を確認。
 - **循環検出**: `example/grammar.tibineko` の `Value -> GroupedValue -> Value` が

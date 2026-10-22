@@ -3,6 +3,11 @@ import { TokenMap } from "./analyze.ts";
 export function generateTokenTypeMap(tokens: TokenMap) {
     let ret = "";
     const allTokens = Object.entries(tokens.getAll()).sort((a, b) => a[0].localeCompare(b[0]));
+    // Languages without keywords produce an empty `phf_map!{}` and a
+    // single-arm `match`, both of which trip lints in the consumer crate.
+    ret += `#![allow(unused_imports)]\n`;
+    ret += `#![allow(clippy::match_single_binding)]\n`;
+    ret += `#![allow(clippy::zero_prefixed_literal)]\n\n`;
     ret += `use phf::phf_map;\n`;
     // TIBINEKO-FORK: module paths of the consumer crate. Edit if your runtime lives elsewhere.
     ret += `use crate::tokenizer::errors::TokenizeErrKind;\n`;

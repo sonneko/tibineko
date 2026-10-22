@@ -50,9 +50,9 @@ product ValueItem {
 
 product Comma with ","
 
-product Note with "#note"
+product Note with "#doc_comment"
 
 product Identifier with "#identifier"
-product NumberLiteral with "#number"
+product NumberLiteral with "#int"
 product StringLiteral with "#string"
 product BoolLiteral with "#bool"

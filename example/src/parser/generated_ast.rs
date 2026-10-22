@@ -6,6 +6,7 @@
 
 #![allow(non_snake_case)]
 #![allow(nonstandard_style)]
+#![allow(unused_imports)]
 
 use crate::compiler::arena::{ArenaBox, ArenaIter};
 use crate::parser::ast_node::{ASTNode, Node, TokenSet};

@@ -1,0 +1,13 @@
+[package]
+name = "tibineko_example"
+version = "0.1.0"
+edition = "2021"
+description = "A tiny config-file language, built with tibineko"
+publish = false
+
+[dependencies]
+phf = { version = "0.13.1", features = ["macros"] }
+
+[lib]
+name = "tibineko_example"
+path = "src/lib.rs"

@@ -53,7 +53,9 @@ export class ASTTypeGenerator {
         ret += `//  In "/src/parser/generated_ast.rs"\n`;
         ret += `// ==========================================\n\n`;
         ret += `#![allow(non_snake_case)]\n`;
-        ret += `#![allow(nonstandard_style)]\n\n`;
+        ret += `#![allow(nonstandard_style)]\n`;
+        // A language with no keywords leaves `Keyword` imported but unused.
+        ret += `#![allow(unused_imports)]\n\n`;
         // TIBINEKO-FORK: module paths of the consumer crate. Edit if your runtime lives elsewhere.
         ret += `use crate::compiler::arena::{ArenaBox, ArenaIter};\n`;
         ret += `use crate::parser::ast_node::{ASTNode, Node, TokenSet};\n`;

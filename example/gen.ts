@@ -1,16 +1,23 @@
-// Run with:  node gen.ts
+// Regenerates the committed Rust sources from grammar.tibineko + tokenmap.csv.
+//
+//     node gen.ts
+//
+// CI re-runs this and fails if the committed output changes, so the checked-in
+// generated files can never drift from the grammar.
 import { generate } from "../gen/index.ts";
 
+const at = (p: string) => new URL(p, import.meta.url).pathname;
+
 const result = generate({
-    grammar: new URL("./grammar.tibineko", import.meta.url).pathname,
-    tokenMap: new URL("./tokenmap.csv", import.meta.url).pathname,
+    grammar: at("./grammar.tibineko"),
+    tokenMap: at("./tokenmap.csv"),
     targets: {
-        parser: new URL("./generated/generated_parser.rs", import.meta.url).pathname,
-        ast: new URL("./generated/generated_ast.rs", import.meta.url).pathname,
-        printer: new URL("./generated/generated_ast_printer.rs", import.meta.url).pathname,
-        tokenMap: new URL("./generated/generated_tokenmap.rs", import.meta.url).pathname,
+        parser: at("./src/parser/generated_parser.rs"),
+        ast: at("./src/parser/generated_ast.rs"),
+        printer: at("./src/parser/generated_ast_printer.rs"),
+        tokenMap: at("./src/tokenizer/generated_tokenmap.rs"),
     },
-    specDir: new URL("./generated/spec", import.meta.url).pathname,
+    specDir: at("./spec"),
     verbose: true,
 });
 

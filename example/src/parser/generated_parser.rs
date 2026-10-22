@@ -106,7 +106,7 @@ pub trait GeneratedParser: BaseParser + Sized {
             Some(Token::Literal(Literal::BoolLiteral(_))) => Ok(Value::BoolLiteral(self.parse_BoolLiteral()?)),
             Some(Token::Delimiter(Delimiter::LeftParen)) => Ok(Value::GroupedValue(self.parse_GroupedValue()?)),
             Some(Token::Delimiter(Delimiter::LeftBracket)) => Ok(Value::ListValue(self.parse_ListValue()?)),
-            Some(Token::Literal(Literal::NumberLiteral(_))) => Ok(Value::NumberLiteral(self.parse_NumberLiteral()?)),
+            Some(Token::Literal(Literal::IntegerLiteral(_))) => Ok(Value::NumberLiteral(self.parse_NumberLiteral()?)),
             Some(Token::Literal(Literal::StringLiteral(_))) => Ok(Value::StringLiteral(self.parse_StringLiteral()?)),
             _ => Err(Self::Error::build(
                 true,

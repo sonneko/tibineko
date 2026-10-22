@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # The generator. Runs on plain `node`: tibineko has no package.json, no
+  # node_modules and no build step.
+  # ---------------------------------------------------------------------------
+  generator:
+    name: Generator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Type stripping must be on by default, which needs Node >= 22.6.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Assert there are no Node dependencies
+        run: |
+          if [ -e package.json ] || [ -e gen/package.json ]; then
+            echo "::error::tibineko must stay dependency-free; found a package.json"
+            exit 1
+          fi
+          if [ -d node_modules ] || [ -d gen/node_modules ]; then
+            echo "::error::tibineko must stay dependency-free; found node_modules"
+            exit 1
+          fi
+
+      - name: Generator self-test
+        run: node gen/self_test.ts
+
+      - name: Regenerate the example crate
+        working-directory: example
+        run: node gen.ts
+
+      # Generated Rust is committed, so it must match the grammar. If this
+      # fails, run `node example/gen.ts` and commit the result.
+      - name: Committed generated sources are up to date
+        run: |
+          if ! git diff --exit-code -- \
+              example/src/parser/generated_ast.rs \
+              example/src/parser/generated_ast_printer.rs \
+              example/src/parser/generated_parser.rs \
+              example/src/tokenizer/generated_tokenmap.rs; then
+            echo "::error::generated sources are stale; run 'node example/gen.ts' and commit"
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------------
+  # The example crate: unit tests (in-crate) and integration tests (tests/).
+  # ---------------------------------------------------------------------------
+  example:
+    name: Example crate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: example
+
+      - name: Build
+        working-directory: example
+        run: cargo build
+
+      - name: Unit tests
+        working-directory: example
+        run: cargo test --lib --verbose
+
+      - name: Integration tests
+        working-directory: example
+        run: cargo test --test parse --verbose
+
+      - name: Test summary
+        working-directory: example
+        run: cargo test --verbose
+
+  # ---------------------------------------------------------------------------
+  # Lints. Advisory for now: the generated sources are not rustfmt-formatted
+  # and clippy has not yet been run over them. Promote to required once clean.
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: example
+
+      - name: Clippy
+        working-directory: example
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Formatting
+        working-directory: example
+        run: cargo fmt --all -- --check

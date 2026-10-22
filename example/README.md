@@ -1,25 +1,25 @@
-# `example/` — a second language
+# `example/` — a second language, as a real crate
 
-A small config-file language, included to prove tibineko is not
-hydent-lang-specific. 13 grammar rules produce 802 lines of Rust.
+A small config-file language. 13 grammar rules generate the parser, AST types,
+printer and scanner tables; the rest of the crate is the tibineko runtime plus
+the support modules they need.
 
 ```bash
-node gen.ts
+node gen.ts        # regenerate the committed Rust from the grammar
+cargo test         # unit tests + integration tests
 ```
-
-Regenerating is deterministic: repeated runs produce byte-identical output, so
-the committed `generated/` directory doubles as a snapshot test.
 
 ## The grammar
 
 ```
-Document  ::= Entry*
-Entry     ::= Pair | Note
-Pair      ::= Identifier ":" Value ";"
-Value     ::= NumberLiteral | StringLiteral | BoolLiteral | ListValue | GroupedValue
-ListValue ::= "[" ValueItem* "]"
-ValueItem ::= Value ","?
+Document     ::= Entry*
+Entry        ::= Pair | Note
+Pair         ::= Identifier ":" Value ";"
+Value        ::= NumberLiteral | StringLiteral | BoolLiteral | ListValue | GroupedValue
+ListValue    ::= "[" ValueItem* "]"
+ValueItem    ::= Value ","?
 GroupedValue ::= "(" Value ")"
+Note         ::= doc comment
 ```
 
 ## What it exercises
@@ -29,62 +29,92 @@ GroupedValue ::= "(" Value ")"
 | `branch` -> `enum` | `Entry`, `Value` | variant dispatch on `peek(0)` |
 | `product` -> `struct` | `Pair`, `ValueItem` | field ordering, terminal matching |
 | unit product | `Comma with ","` | single-terminal rule |
-| `*list` -> `ArenaIter` | `Document.entries`, `ListValue.items` | repetition and its FIRST/FOLLOW handling |
+| `*list` -> `ArenaIter` | `Document.entries`, `ListValue.items` | repetition, FIRST/FOLLOW |
 | `?option` -> `Option` | `ValueItem.comma` | nullable analysis |
-| **inline recursion -> `ArenaBox`** | `Value -> GroupedValue -> Value` | must be boxed or the Rust enum is infinitely sized |
-| **recursion through a list** | `Value -> ListValue -> ValueItem -> Value` | must *not* be boxed, since `ArenaIter` is already a handle |
-| hand-written nodes | `Identifier`, `NumberLiteral`, `StringLiteral`, `BoolLiteral`, `Note` | the `$...$` path: `pub use crate::parser::manual_ast::X;` |
+| **inline recursion -> `ArenaBox`** | `Value -> GroupedValue -> Value` | must be boxed or the enum is infinitely sized |
+| **recursion through a list** | `Value -> ListValue -> ValueItem -> Value` | must *not* be boxed; `ArenaIter` is already a handle |
+| hand-written nodes | `Identifier`, `NumberLiteral`, `StringLiteral`, `BoolLiteral`, `Note` | the `$...$` path |
+| **no keywords at all** | — | a language with an empty keyword set must not emit lint warnings |
 
-The two recursion cases are the interesting pair. Look at
-`generated/generated_ast.rs`:
+The two recursion cases are the interesting pair. From `src/parser/generated_ast.rs`:
 
 ```rust
 pub struct GroupedValue {
-    pub(super) value: ArenaBox<Value>,   // boxed: inline cycle
+    pub(super) value: ArenaBox<Value>,       // boxed: inline cycle
     ...
 }
 
 pub struct ListValue {
-    pub(super) items: ArenaIter<ValueItem>,  // not boxed: list is a handle
+    pub(super) items: ArenaIter<ValueItem>,  // not boxed: a list is a handle
 }
 ```
 
-And the generated dispatch stays readable:
+`tests/parse.rs::walks_a_deeply_nested_value` walks the boxed cycle at runtime,
+so the boxing is exercised, not just asserted by inspection.
 
-```rust
-fn parse_Value(&mut self) -> Result<Value, Self::Error> {
-    match self.peek::<0>() {
-        Some(Token::Literal(Literal::BoolLiteral(_)))   => Ok(Value::BoolLiteral(self.parse_BoolLiteral()?)),
-        Some(Token::Delimiter(Delimiter::LeftParen))    => Ok(Value::GroupedValue(self.parse_GroupedValue()?)),
-        Some(Token::Delimiter(Delimiter::LeftBracket))  => Ok(Value::ListValue(self.parse_ListValue()?)),
-        ...
-    }
-}
+## Layout
+
+```
+grammar.tibineko          yours
+tokenmap.csv              yours
+gen.ts                    yours (~20 lines)
+src/parser/
+  generated_*.rs          tibineko output, committed
+  ast_node.rs base_parser.rs errors.rs recovery.rs tracer.rs token_stream.rs
+                          tibineko runtime, copied
+  manual_ast.rs           hand-written AST nodes (5)
+  manual_parser.rs        hand-written parse hooks (5)
+  parse.rs                the Parser struct
+src/tokenizer/            tokens/tokenize/errors copied from hydent-lang,
+                          generated_tokenmap.rs from tibineko
+src/compiler/, src/diagnostic/, src/utility/
+                          arena, span, symbol, source holder, diagnostics
+tests/parse.rs            integration tests
 ```
 
-## What this example is *not*
+The support modules are hydent-lang's, unchanged. Only `manual_ast.rs`,
+`manual_parser.rs`, `parse.rs`, `compiler/context.rs` and the `mod.rs` files are
+written for this language.
 
-It is not a compilable crate. `example/generated/*.rs` refer to
-`crate::parser::manual_ast`, `crate::compiler::arena` and so on, which do not
-exist here — this directory has no `Cargo.toml` and no `src/`. It demonstrates
-generation only.
+## Tests
 
-Wiring it into a real crate means supplying the runtime's requirements (see
-`../runtime/README.md`) plus the five hand-written nodes listed above. That
-step has not been done, and no `cargo build` has been run anywhere in this
-repository.
+**Unit** (`cargo test --lib`, inside the crate so they can see `pub(super)`
+fields):
+
+- `src/tokenizer/tests.rs` — tokenizing pairs, literals, brackets; doc comments
+  survive while line comments are dropped; unknown tokens are reported.
+- `src/parser/tests.rs` — empty document, single pair, every value shape, notes
+  as entries, walking the boxed recursion, nested lists with a trailing comma,
+  error recovery, garbage rejection, JSON rendering.
+- `src/parser/ast_node.rs` — `TokenSet` bitmask semantics, including the `any`
+  wildcard. These come with the runtime.
+
+**Integration** (`cargo test --test parse`, public API only): a whole document
+parses clean, keys resolve through the symbol table, every value shape is
+distinguished, a deeply nested value is walked, the AST renders as JSON, error
+recovery keeps the rest of the document, and empty input is a valid empty
+document.
 
 ## The FIRST/FOLLOW warnings
 
-Generation prints warnings such as:
+Generation prints warnings like:
 
 ```
 👀 WARNING: Tokens in both First and Follow sets: ... in Rule Value
 ```
 
-These are expected for repetition-heavy grammars and are the same class of
-warning hydent-lang emits. They mean a token can both start and follow a rule,
-so the generated `repeat` needs its second-token lookahead (`FIRST_2_SETS`) to
-decide whether to continue. They only become fatal for a *nullable* rule, where
-two tokens of lookahead genuinely cannot resolve the choice — the analyzer
-throws in that case.
+Expected for repetition-heavy grammars; hydent-lang emits the same class. They
+mean a token can both start and follow a rule, so the generated `repeat` needs
+its second-token lookahead (`FIRST_2_SETS`) to decide whether to continue. They
+only become fatal for a *nullable* rule, where two tokens genuinely cannot
+resolve the choice — the analyzer throws in that case.
+
+## Verification status
+
+The generator side is verified locally: `node gen.ts` is deterministic and the
+committed Rust matches it exactly.
+
+**The Rust has not been compiled in the environment where it was written** — no
+`cargo` was available. CI (`.github/workflows/ci.yml`) builds the crate and runs
+both test suites on every push and pull request. Until that has run green once,
+treat the first CI run as the real compile check.

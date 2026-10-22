@@ -1,3 +1,7 @@
+#![allow(unused_imports)]
+#![allow(clippy::match_single_binding)]
+#![allow(clippy::zero_prefixed_literal)]
+
 use phf::phf_map;
 use crate::tokenizer::errors::TokenizeErrKind;
 use crate::tokenizer::tokenize::Tokenizer;

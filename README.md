@@ -227,7 +227,8 @@ or as a marker to re-apply.
 | `gen/` | the generator. `node gen/self_test.ts` runs its tests. |
 | `runtime/` | Rust runtime to copy into `src/parser/`. |
 | `seed/` | files to copy once and then own. |
-| `example/` | a small second language, with generated output committed. |
+| `example/` | a small second language as a **real crate**, with generated output committed and tests. |
+| `.github/workflows/ci.yml` | generator self-test, generated-output freshness, `cargo build` + both test suites. |
 | `plans.md` | the extraction plan this repository was built from. |
 
 ---
@@ -237,14 +238,23 @@ or as a marker to re-apply.
 Extracted from [hydent-lang](https://github.com/sonneko/hydent-lang) at
 `bb9a359`.
 
-Verified on Node v22.22.3:
+Verified locally on Node v22.22.3, with **no `node_modules` present**:
 
-- `gen/self_test.ts` — 16 passed, 0 failed, with **no `node_modules` present**.
-- Generated output is byte-identical to what the original `tsx`-based pipeline
-  produced for hydent-lang's grammar.
-- `example/` generates 802 lines of Rust from a 13-rule grammar, deterministically.
+- `gen/self_test.ts` — 16 passed, 0 failed.
+- Feeding hydent-lang's grammar and token map to this `gen/` reproduces the
+  original `tsx`-based pipeline's output. `generated_parser.rs` and
+  `generated_ast_printer.rs` match **byte for byte**; `generated_ast.rs` and
+  `generated_tokenmap.rs` differ only by the `#![allow(...)]` headers added
+  here (verified by diffing against the pre-change generator, which does
+  reproduce all four byte for byte).
+- `example/gen.ts` is deterministic, and the committed Rust matches it exactly,
+  so CI can assert the generated sources are never stale.
+- `runtime/*.rs` are byte-identical to hydent-lang's working copies.
+- Static checks over `example/`: every `mod` declaration resolves, every
+  `crate::` path names a real module, all 5 `GeneratedParser` hooks are
+  implemented, all 13 `ASTVisitor` methods are, and every accessor the tests
+  call exists.
 
-**Not verified:** the Rust has not been compiled. The extraction environment has
-no `cargo`. `runtime/*.rs` are byte-identical to hydent-lang's working copies
-and `example/generated/*.rs` come from the same generator that builds
-hydent-lang, but a `cargo build` of the example crate is still outstanding.
+**Not verified:** the Rust has never been compiled. No `cargo` was available
+where this was written. `example/` is a complete crate and CI builds and tests
+it, but until that first CI run is green the compile is unconfirmed.
