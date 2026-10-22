@@ -142,15 +142,13 @@ jobs:
           exit "$status"
 
   # ---------------------------------------------------------------------------
-  # Lints. Advisory while the vendored runtime is not yet rustfmt-clean.
-  # The clippy lints inherited from hydent-lang are silenced at the module
-  # declarations in example/src/{parser,tokenizer}/mod.rs; promote to required
-  # once the whole tree is clean.
+  # Lints. Required. The clippy lints inherited from hydent-lang are silenced
+  # at the module declarations in example/src/{parser,tokenizer}/mod.rs, and
+  # rustfmt skips the machine-generated sources.
   # ---------------------------------------------------------------------------
   lint:
-    name: Lint (advisory)
+    name: Lint
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 

@@ -104,11 +104,7 @@ pub fn parse_source(source: &str) -> (Ast<'_>, Vec<Diagnostic>) {
 
     let mut parser: Parser<'_, '_, '_, _, NopeTracer> = Parser::new(
         stream,
-        crate::compiler::context::CompilerFrontendContext::new(
-            source,
-            &ast_arena,
-            &mut symbols,
-        ),
+        crate::compiler::context::CompilerFrontendContext::new(source, &ast_arena, &mut symbols),
         &mut diagnostic_stream,
     );
     let ast = parser.parse();
