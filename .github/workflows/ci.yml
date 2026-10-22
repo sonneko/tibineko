@@ -191,8 +191,11 @@ jobs:
           rustfmt --edition 2021 --config skip_children=true --check $files 2>&1 | tee /tmp/fmt.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
-            head -60 /tmp/fmt.log | while IFS= read -r line; do
-              printf '::error title=rustfmt::%s\n' "$(printf '%s' "$line" | sed 's/%/%25/g')"
-            done
+            # One annotation carrying the whole diff. GitHub caps annotations at
+            # ten per step per level, so one-per-line silently hid most of the
+            # differences. Newlines have to be percent-encoded in the data.
+            escaped=$(sed -e 's/%/%25/g' -e 's/\r/%0D/g' /tmp/fmt.log \
+                      | sed -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
+            printf '::error title=rustfmt (complete diff)::%s\n' "$escaped"
           fi
           exit "$status"
