@@ -1,9 +1,12 @@
 //! Unit tests for the tokenizer as configured by this language's token map.
 
-use crate::diagnostic::stream::StockDiagnosticStream;
 use crate::compiler::symbol::SymbolFactory;
+use crate::diagnostic::stream::StockDiagnosticStream;
+use crate::parser::token_stream::TokenStream;
 use crate::tokenizer::tokenize::Tokenizer;
 use crate::tokenizer::tokens::{Comment, Delimiter, Literal, Operator, Token};
+
+const SOURCE: &str = "/// kept\n// dropped\nkey: 1;";
 
 fn tokenize(source: &str) -> (Vec<Token>, Vec<crate::diagnostic::Diagnostic>) {
     let mut symbols = SymbolFactory::new(source);
@@ -55,22 +58,44 @@ fn tokenizes_brackets_and_parens() {
     assert_eq!(tokens[7], Token::EndOfFile);
 }
 
-/// `TokenStream` drops line and block comments but keeps doc comments, which
-/// the grammar uses as `Note` entries. This test pins that asymmetry.
+/// The tokenizer produces both comment kinds; it is `TokenStream` that drops
+/// the ones the grammar cannot see. Testing the two layers separately keeps
+/// that asymmetry pinned to the right place.
 #[test]
-fn keeps_doc_comments_but_drops_line_comments() {
-    let (tokens, _) = tokenize("/// kept\n// dropped\nkey: 1;");
+fn tokenizer_produces_both_comment_kinds() {
+    let (tokens, diagnostics) = tokenize("/// kept\n// dropped\nkey: 1;");
+    assert!(diagnostics.is_empty(), "unexpected diagnostics: {diagnostics:?}");
     assert!(
         tokens
             .iter()
             .any(|t| matches!(t, Token::Comment(Comment::DocComment(_)))),
-        "doc comment should survive tokenizing: {tokens:?}"
+        "doc comment should be produced: {tokens:?}"
     );
     assert!(
-        !tokens
+        tokens
             .iter()
             .any(|t| matches!(t, Token::Comment(Comment::LineComment))),
-        "line comment should be dropped: {tokens:?}"
+        "line comment should be produced: {tokens:?}"
+    );
+}
+
+#[test]
+fn token_stream_drops_line_comments_but_keeps_doc_comments() {
+    let mut symbols = SymbolFactory::new(SOURCE);
+    let mut stream = StockDiagnosticStream::new();
+    let (with_spans, _) = Tokenizer::new(SOURCE, &mut symbols).tokenize(&mut stream);
+
+    let kept: Vec<Token> = TokenStream::new(with_spans).map(|(token, _)| token).collect();
+
+    assert!(
+        kept.iter()
+            .any(|t| matches!(t, Token::Comment(Comment::DocComment(_)))),
+        "the grammar uses doc comments as `Note`, so they must survive: {kept:?}"
+    );
+    assert!(
+        !kept.iter()
+            .any(|t| matches!(t, Token::Comment(Comment::LineComment))),
+        "line comments should be filtered out: {kept:?}"
     );
 }
 
