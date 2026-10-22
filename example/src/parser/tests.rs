@@ -20,10 +20,7 @@ fn entries(ast: &Ast<'_>) -> Vec<Entry> {
 
 /// The same, for one list's items.
 fn value_items(list: &ListValue, ast: &Ast<'_>) -> Vec<ValueItem> {
-    list.items()
-        .into_ref(ast.arena())
-        .map(|e| *e)
-        .collect()
+    list.items().into_ref(ast.arena()).map(|e| *e).collect()
 }
 
 #[test]
