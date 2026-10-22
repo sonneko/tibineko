@@ -1,10 +1,9 @@
 //! AST nodes the grammar declares with a `$payload$` token, so tibineko emits
 //! `pub use crate::parser::manual_ast::X;` instead of generating a struct.
 //!
-//! The generated printer hard-codes two of these by name:
-//!   * `Identifier`   -> reads `.symbol`
-//!   * `StringLiteral`-> reads `.span`
-//! That is a `TIBINEKO-FORK` point in `gen/gen_ast_printer.ts`.
+//! The generated printer hard-codes two of these by name: `Identifier` reads
+//! `.symbol` and `StringLiteral` reads `.span`. Both are `TIBINEKO-FORK`
+//! points in `gen/gen_ast_printer.ts`.
 
 use crate::compiler::{span::Span, symbol::Symbol};
 

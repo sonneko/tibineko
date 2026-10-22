@@ -19,14 +19,22 @@ use crate::tokenizer::tokenize::Tokenizer;
 //   errors.rs:26        `IParseErr::build`'s `identifier` is unused (upstream
 //                       carries a `WARNING: identifier is ignored` comment)
 //   tracer.rs:14        `NopeTracer::trace`'s `name` is unused
+//
+// `dead_code` is allowed on the same modules for a different reason: the
+// runtime is a general-purpose library and this example uses only part of it
+// (`optional_box`, `TokenSet::union`, `is_sync_point`, ...). Trimming the
+// runtime to fit one example would defeat the point of vendoring it whole.
+#[allow(dead_code)]
 mod ast_node;
-#[allow(unused_mut)]
+#[allow(unused_mut, dead_code)]
 mod base_parser;
-#[allow(unused_variables)]
+#[allow(unused_variables, dead_code)]
 mod errors;
+#[allow(dead_code)]
 mod recovery;
+#[allow(dead_code)]
 pub mod token_stream;
-#[allow(unused_variables)]
+#[allow(unused_variables, dead_code)]
 pub mod tracer;
 
 // --- tibineko generated output (regenerate with `node gen.ts`) ------------

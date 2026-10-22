@@ -180,10 +180,15 @@ jobs:
 
       - name: Formatting
         if: always()
-        working-directory: example
+        # Runs at the repo root: the file list comes from `git ls-files` and is
+        # rooted there.
         run: |
           set +e
-          cargo fmt --all -- --check 2>&1 | tee /tmp/fmt.log
+          # Only the hand-written and vendored sources are checked. The
+          # `generated_*` files are machine output; reformatting them by hand
+          # would be undone by the next `node gen.ts`.
+          files=$(git ls-files example/src example/tests | grep '\.rs$' | grep -v '/generated_')
+          rustfmt --edition 2021 --check $files 2>&1 | tee /tmp/fmt.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             head -60 /tmp/fmt.log | while IFS= read -r line; do
