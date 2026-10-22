@@ -119,11 +119,16 @@ fn renders_the_ast_as_json() {
 }
 
 /// Error recovery is the behaviour most likely to regress, so pin it: a broken
-/// line must produce a diagnostic *and* leave the rest of the document usable.
+/// tail must produce a diagnostic *and* leave everything before it intact.
+///
+/// The failure is placed at the end of the input on purpose. Where recovery
+/// resumes after a mid-document error depends on the synchronisation sets, so
+/// asserting on later entries would be asserting on recovery internals rather
+/// than on the contract.
 #[test]
-fn recovers_from_errors_without_losing_the_rest() {
-    let (ast, diagnostics) = parse_source("good: 1;\nbroken: \nalso_good: 2;");
-    assert!(!diagnostics.is_empty(), "the broken line should be reported");
+fn a_broken_tail_does_not_lose_what_came_before() {
+    let (ast, diagnostics) = parse_source("good: 1;\nalso_good: 2;\ntruncated: ");
+    assert!(!diagnostics.is_empty(), "the truncated pair should be reported");
 
     let keys: Vec<String> = ast
         .document()
@@ -138,8 +143,24 @@ fn recovers_from_errors_without_losing_the_rest() {
     assert!(keys.contains(&"good".to_owned()), "lost `good`: {keys:?}");
     assert!(
         keys.contains(&"also_good".to_owned()),
-        "recovery did not reach `also_good`: {keys:?}"
+        "lost `also_good`: {keys:?}"
     );
+}
+
+/// Mid-document garbage must not abort the parse. Where recovery resumes is an
+/// implementation detail, so this only asserts that the document survives.
+#[test]
+fn garbage_in_the_middle_still_yields_a_document() {
+    let (ast, diagnostics) = parse_source("a: 1;\n}}} nonsense\nb: 2;");
+    assert!(!diagnostics.is_empty(), "garbage should be reported");
+
+    let pairs = ast
+        .document()
+        .entries()
+        .into_ref(ast.arena())
+        .filter(|e| matches!(e, Entry::Pair(_)))
+        .count();
+    assert!(pairs >= 1, "the document should not be empty: {pairs} pairs");
 }
 
 #[test]

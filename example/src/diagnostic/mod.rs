@@ -20,6 +20,7 @@ pub struct Suggestion<'ms> {
     pub replacement_text: Option<&'ms str>,
 }
 
+#[derive(Debug)]
 pub enum DiagnosticLevel {
     Error,
     Warning,
@@ -36,6 +37,7 @@ impl Display for DiagnosticLevel {
     }
 }
 
+#[derive(Debug)]
 pub struct Diagnostic {
     pub id: u32,
     pub message: &'static str,
