@@ -1,0 +1,5 @@
+# Build artifacts
+/target
+
+# Regenerate with `node gen.ts`; the Rust output under src/ *is* committed.
+/spec
