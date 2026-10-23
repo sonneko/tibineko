@@ -6,7 +6,7 @@ tables.
 
 **tibineko is not a package.** There is nothing to install, no registry entry,
 no crate. You copy two directories into your repository and they become part of
-your source tree — the way you would vendor `stb_image.h` or the way Zig
+your source tree — the way you would vendor `stb_image.h`, or the way Zig
 treats `std`.
 
 ```
@@ -18,12 +18,29 @@ your-lang/
   gen.ts              <- your ~10 line entry point
 ```
 
+Extracted from [hydent-lang](https://github.com/sonneko/hydent-lang) at
+`bb9a359`. See [`plans.md`](plans.md) for why it was extracted this way.
+
+## Documentation
+
+| | |
+|---|---|
+| **This file** | what tibineko is, quick start, ownership tiers, updating, limits |
+| [`docs/grammar.md`](docs/grammar.md) | the grammar DSL: full BNF, boxing, error messages |
+| [`docs/token-map.md`](docs/token-map.md) | the token map, hand-written nodes, the tokenizer contract |
+| [`docs/gotchas.md`](docs/gotchas.md) | traps when wiring the runtime into a new crate |
+| [`gen/README.md`](gen/README.md) | generator internals and its API |
+| [`runtime/README.md`](runtime/README.md) | the Rust runtime: what it provides, what you must provide |
+| [`seed/README.md`](seed/README.md) | the files you copy once and then own |
+| [`example/README.md`](example/README.md) | a complete second language, as a working crate |
+| [`plans.md`](plans.md) | the extraction plan this repository was built from |
+
 ---
 
 ## Why vendoring, and not a crate
 
-The generated parser is not a library you link against. It is a `trait`
-whose default methods call each other recursively:
+The generated parser is not a library you link against. It is a `trait` whose
+default methods call each other recursively:
 
 ```rust
 pub trait GeneratedParser: BaseParser + Sized {
@@ -58,7 +75,7 @@ cd /path/to/tibineko/example && node gen.ts
 cd /path/to/tibineko && node gen/self_test.ts
 ```
 
-Then write your entry point — see `seed/gen.ts`:
+Then write your entry point — see [`seed/gen.ts`](seed/gen.ts):
 
 ```ts
 import { generate } from "./tibineko/gen/index.ts";
@@ -80,6 +97,17 @@ generate({
 There is deliberately no config file schema and no CLI flags. You own this
 file; edit it however you like.
 
+Then copy the runtime and wire it up:
+
+```bash
+cp tibineko/runtime/*.rs src/parser/
+```
+
+and add the `mod` declarations from
+[`seed/parser_mod_snippet.rs`](seed/parser_mod_snippet.rs). Read
+[`docs/gotchas.md`](docs/gotchas.md) first — there are five ways this step
+fails that the compiler only reports one at a time.
+
 ---
 
 ## Layout and ownership
@@ -93,6 +121,11 @@ Three tiers. This is the only rule you need to remember.
 | **T3** entirely yours | grammar, token map, `manual_ast.rs`, `manual_parser.rs`, `tokens.rs`, arena, span, diagnostics | tibineko never touches |
 
 Keeping your edits inside T2/T3 is what makes updating cheap.
+
+`example/` is the reference for how the tiers land in a real crate: of its 34
+`.rs` files, **17 are byte-identical to hydent-lang's**, 10 are modified
+(mostly `mod.rs` declarations), and 7 are generated or written for that
+language. See [`example/README.md`](example/README.md).
 
 ### What the runtime needs from you
 
@@ -108,21 +141,18 @@ crate::parser::generated_ast::ASTVisitor   (generated)
 crate::parser::parse::Parser               (yours)
 ```
 
-See `seed/parser_mod_snippet.rs` for the exact `mod` declarations.
+Full details in [`runtime/README.md`](runtime/README.md).
 
 ---
 
 ## The grammar DSL
 
 ```
-<bnf>            ::= { <rule> }
-<rule>           ::= <branch_rule> | <product_rule>
-
-<branch_rule>    ::= "branch" <ident> "{" { <ident> [ "with" <string> ] } "}"
-<product_rule>   ::= "product" <ident> ( "{" { <product_item> [ "with" <string> ] } "}"
+<branch_rule>  ::= "branch"  <ident> "{" { <ident> [ "with" <string> ] } "}"
+<product_rule> ::= "product" <ident> ( "{" { <product_item> [ "with" <string> ] } "}"
                                         | "with" <string> )
-<product_item>   ::= ( <ident> ":" <nonterminal> ) | <string>
-<nonterminal>    ::= ( "*" | "?" )? <ident>
+<product_item> ::= ( <ident> ":" <nonterminal> ) | <string>
+<nonterminal>  ::= ( "*" | "?" )? <ident>
 ```
 
 - `branch` becomes a Rust `enum`, one variant per alternative.
@@ -144,8 +174,11 @@ product Pair {
 
 Recursion is handled for you: an inline cycle such as
 `Value -> GroupedValue -> Value` is automatically boxed to `ArenaBox<Value>`,
-otherwise the Rust type would have infinite size. A cycle through a `*list`
-is *not* boxed, because `ArenaIter` is already a handle.
+otherwise the Rust type would have infinite size. A cycle through a `*list` is
+*not* boxed, because `ArenaIter` is already a handle.
+
+Full reference, with the boxing rules and the analyzer's error messages:
+[`docs/grammar.md`](docs/grammar.md).
 
 ---
 
@@ -160,21 +193,11 @@ A CSV mapping each grammar literal to the token expression to emit:
 "#fallback", "Token::Invalid"
 ```
 
-Literals beginning with `#` are conventions rather than real text:
+**Duplicate literals are an error** — tibineko throws rather than letting the
+last one win silently.
 
-| Literal | Meaning |
-|---|---|
-| `#identifier`, `#int`, `#string`, ... | a token carrying a payload |
-| `#fallback` | the catch-all rule: accept anything, hand-written parser |
-| `#raw_token` | a lossless token, hand-written parser |
-
-**`$...$` marks a payload type.** Its presence also flags the node as
-hand-written: instead of generating a struct, tibineko emits
-`pub use crate::parser::manual_ast::X;` and expects you to define `X` and its
-`parse_X` yourself. See `example/` for a grammar that does this, and hydent-lang
-for a full one.
-
-Duplicate literals are an error.
+`$...$` marks a payload type, and its presence also marks the node as
+hand-written. Full reference: [`docs/token-map.md`](docs/token-map.md).
 
 ---
 
@@ -217,6 +240,7 @@ or as a marker to re-apply.
   FOLLOW, since that cannot be resolved with two tokens of lookahead.
 - **Generated code should be committed.** It is plain Rust; committing it means
   `cargo build` works without Node and the parser stays readable in a debugger.
+  CI here asserts the committed output is never stale.
 
 ---
 
@@ -224,21 +248,45 @@ or as a marker to re-apply.
 
 | Path | What |
 |---|---|
-| `gen/` | the generator. `node gen/self_test.ts` runs its tests. |
-| `runtime/` | Rust runtime to copy into `src/parser/`. |
+| `gen/` | the generator (15 files, 2674 lines). `node gen/self_test.ts` runs its tests. |
+| `runtime/` | Rust runtime to copy into `src/parser/` (6 files, 680 lines). |
 | `seed/` | files to copy once and then own. |
 | `example/` | a small second language as a **real crate**, with generated output committed and tests. |
-| `.github/workflows/ci.yml` | generator self-test, generated-output freshness, `cargo build` + both test suites. |
+| `docs/` | grammar, token map, and gotcha references. |
+| `.github/workflows/ci.yml` | three jobs: generator, example crate, lint. |
 | `plans.md` | the extraction plan this repository was built from. |
+| `VERSION` | `0.1.0`. |
 
 ---
 
-## Status
+## CI
 
-Extracted from [hydent-lang](https://github.com/sonneko/hydent-lang) at
-`bb9a359`.
+`.github/workflows/ci.yml`, three required jobs.
 
-Verified locally on Node v22.22.3, with **no `node_modules` present**:
+| Job | Steps |
+|---|---|
+| **Generator** | assert no `package.json`/`node_modules` exist → `node gen/self_test.ts` → `node example/gen.ts` → `git diff --exit-code` on the four generated files |
+| **Example crate** | `cargo build` → `cargo test --lib` → `cargo test --test parse` → `cargo test` |
+| **Lint** | `cargo clippy --all-targets -- -D warnings` → `rustfmt --check` |
+
+The generator job is what keeps the committed Rust honest: if the grammar
+changes and nobody regenerates, `git diff` fails the build.
+
+`rustfmt` skips the `generated_*` files (`skip_children=true`); reformatting
+machine output by hand would be undone by the next `node gen.ts`. clippy's
+`dead_code` / `unused_mut` / `unused_variables` are allowed on the *module
+declarations* wrapping the vendored runtime, not inside it, so T1 stays
+byte-identical to upstream.
+
+Test counts are re-emitted as `::notice` annotations because this repository's
+job logs are not reachable through the API.
+
+---
+
+## Verification status
+
+**Generator** — verified locally on Node v22.22.3 with **no `node_modules`
+present**:
 
 - `gen/self_test.ts` — 16 passed, 0 failed.
 - Feeding hydent-lang's grammar and token map to this `gen/` reproduces the
@@ -247,16 +295,21 @@ Verified locally on Node v22.22.3, with **no `node_modules` present**:
   `generated_tokenmap.rs` differ only by the `#![allow(...)]` headers added
   here (verified by diffing against the pre-change generator, which does
   reproduce all four byte for byte).
-- `example/gen.ts` is deterministic, and the committed Rust matches it exactly,
-  so CI can assert the generated sources are never stale.
-- 5 of the 6 `runtime/*.rs` files are byte-identical to hydent-lang's working
-  copies; `tracer.rs` drops three unused imports that hydent masks with a
-  crate-level `#![allow(unused)]`.
-- Static checks over `example/`: every `mod` declaration resolves, every
-  `crate::` path names a real module, all 5 `GeneratedParser` hooks are
-  implemented, all 13 `ASTVisitor` methods are, and every accessor the tests
-  call exists.
+- `example/gen.ts` is deterministic, and the committed Rust matches it exactly.
 
-**Not verified:** the Rust has never been compiled. No `cargo` was available
-where this was written. `example/` is a complete crate and CI builds and tests
-it, but until that first CI run is green the compile is unconfirmed.
+**Runtime** — 5 of the 6 `runtime/*.rs` files are byte-identical to
+hydent-lang's working copies (`ast_node`, `base_parser`, `errors`, `recovery`,
+`token_stream`). `tracer.rs` drops `use std::{fmt, io};` and
+`use crate::compiler::span::Span;`, neither of which it uses — hydent masks
+that with a crate-level `#![allow(unused)]`.
+
+**Rust** — there is no `cargo` in the environment where this was written, so
+**CI is the compiler**. Run
+[`39779785541`](https://github.com/sonneko/tibineko/actions/runs/39779785541)
+is green: build, **16 unit tests**, **9 integration tests** (25 passed, 0
+failed), clippy `-D warnings`, and rustfmt.
+
+CI found bugs that reading the code had missed — a dropped `use IParseErr`, an
+inner attribute placed after `use` statements, `Diagnostic` lacking `Debug`,
+and `ArenaIterReader::Item` being `&mut T` rather than `T`. They are written up
+in [`docs/gotchas.md`](docs/gotchas.md).
