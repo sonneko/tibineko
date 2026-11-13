@@ -46,15 +46,20 @@ jobs:
         working-directory: example
         run: node gen.ts
 
-      # Generated Rust is committed, so it must match the grammar. If this
-      # fails, run `node example/gen.ts` and commit the result.
+      # Generated Rust and spec files are committed, so they must match the
+      # grammar. If this fails, run `node example/gen.ts` and commit the
+      # result. (The spec files used to be gitignored, which made this
+      # check vacuous for them: `git diff` never sees ignored files.)
       - name: Committed generated sources are up to date
         run: |
           if ! git diff --exit-code -- \
-              example/src/parser/generated_ast.rs \
-              example/src/parser/generated_ast_printer.rs \
-              example/src/parser/generated_parser.rs \
-              example/src/tokenizer/generated_tokenmap.rs; then
+            example/src/parser/generated_ast.rs \
+            example/src/parser/generated_ast_printer.rs \
+            example/src/parser/generated_parser.rs \
+            example/src/tokenizer/generated_tokenmap.rs \
+            example/spec/ast.json \
+            example/spec/ir.json \
+            example/spec/mermaid_grammar.html; then
             echo "::error::generated sources are stale; run 'node example/gen.ts' and commit"
             exit 1
           fi
