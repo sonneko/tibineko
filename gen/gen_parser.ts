@@ -1,5 +1,53 @@
 import type {IR, BranchParserFunction, ProductParserFunction, HookParserFunction} from "./ir.ts";
 
+/**
+ * A concrete Rust value for a `$payload$` in a token expression, so the
+ * token can appear in the `&[Token]` expected list. A `_` placeholder is
+ * not a valid Rust value expression, which is why `$` tokens used to be
+ * dropped from the list entirely (and `parse_Value` reported only
+ * `[LeftBracket, LeftParen]`). Returns null for payload types no value can
+ * be fabricated for; those tokens stay out of the list.
+ *
+ * Two constraints shape what can be fabricated:
+ * - The list is `&'static [Token]` and lives in a function-local `const`
+ *   item (see `generateBranchParseFunction`), where `Span::new(0, 0)` is
+ *   evaluated at compile time — so the consumer's `Span::new` must be a
+ *   `const fn` (the example's is). An inline array would not work even
+ *   then: rvalue promotion does not apply to const fn calls.
+ * - `Token::Identifier` is never fabricated: its payload is a `Symbol`,
+ *   which has no public const constructor. The `$...$` in the tokenmap
+ *   names the AST-side payload, not the token's. Identifier-ness is
+ *   conveyed instead by the `identifier` flag passed to
+ *   `IParseErr::build`, which diagnostics render as "expected an
+ *   identifier".
+ * - Float literals are never fabricated either: the token's payload is
+ *   a wrapper type (e.g. `HashableFloat<f32>`), not a plain `f32`, and
+ *   the generator cannot know its constructor.
+ */
+export function expectedTokenValue(token: string): string | null {
+    // Token::Identifier's payload is a Symbol: no const value exists.
+    if (/^Token::Identifier\(/.test(token)) return null;
+    let unknown = false;
+    const replaced = token.replace(/\$([^$]+)\$/g, (_m, payload: string) => {
+        switch (payload) {
+            case "i8": case "i16": case "i32": case "i64":
+            case "u8": case "u16": case "u32": case "u64":
+            case "isize": case "usize":
+                return "0";
+            case "bool":
+                return "false";
+            case "char":
+                return "'\\0'";
+            case "Span":
+                return "Span::new(0, 0)";
+            default:
+                unknown = true;
+                return _m;
+        }
+    });
+    return unknown ? null : replaced;
+}
+
 export class ParserGenerator {
     public generateParser(ir: IR): string {
         const funcs = [];
@@ -31,6 +79,9 @@ export class ParserGenerator {
         ret += `use crate::parser::errors::IParseErr;\n`;
         ret += `use crate::parser::tracer::TraceGuard;\n`;
         ret += `use crate::parser::ast_node::ASTNode;\n`;
+        // Needed for the `Span::new(0, 0)` placeholders in error `expected`
+        // lists (see expectedTokenValue above).
+        ret += `use crate::compiler::span::Span;\n`;
         ret += `use crate::tokenizer::tokens::{Delimiter, Keyword, Literal, Operator, Comment, Token};\n\n`;
         ret += `#[allow(clippy::wildcard_imports)]\n`;
         ret += `use crate::parser::generated_ast::*;\n\n`;
@@ -48,12 +99,30 @@ export class ParserGenerator {
         ret += `\n    fn parse_${func.functionName}(&mut self) -> Result<${func.astTypeName}, Self::Error> {\n`;
 
         const unmatchedFallback = func.unmatchedFallback;
-        // TIBINEKO-FORK: `$...$` in a token means "hand-written node"; `$` is stripped for matching.
-        const expected = [...new Set(func.expectedTerminals.filter(t => !t.includes("$") && !t.includes("_")))];
-        const hasCustomMatch = func.expectedTerminals.some(t => t.includes("$"));
+        // `$...$` payloads are replaced with concrete defaults (see
+        // expectedTokenValue) instead of being dropped, so the error lists
+        // every token that could have appeared here.
+        const expected = [...new Set(func.expectedTerminals
+            .map(expectedTokenValue)
+            .filter((t): t is string => t !== null && t !== "_"))];
+        // The list is `&'static [Token]`, so it lives in a function-local
+        // `const` item rather than an inline array: rvalue promotion does
+        // not apply to const fn calls, so an inline `Span::new(0, 0)`
+        // would make the whole array a temporary and fail to compile
+        // (E0716). In a `const` item the call is evaluated at compile
+        // time, which is also why the consumer's `Span::new` must be a
+        // `const fn`. An empty list stays an inline `&[]`.
+        const expectedName = `EXPECTED_${func.functionName.toUpperCase()}`;
+        const expectedExpr = expected.length === 0 ? "&[]" : expectedName;
+        const expectedConst = expected.length === 0 ? ""
+            : `        const ${expectedName}: &[Token] = &[${expected.join(", ")}];\n`;
+        // The first argument to `IParseErr::build` is whether an identifier
+        // was expected — not, as before, whether any `$` token was present
+        // (that made `parse_Value` claim an identifier was expected).
+        const expectsIdentifier = func.expectedTerminals.some(t => t.includes("Identifier"));
         const errorResult = `Err(Self::Error::build(\n`
-            + `                ${hasCustomMatch},\n`
-            + `                &[${expected.join(", ")}],\n`
+            + `                ${expectsIdentifier},\n`
+            + `                ${expectedExpr},\n`
             + `                self.enviroment(),\n`
             + `            ))`;
         const fallbackResult = () => {
@@ -87,6 +156,7 @@ export class ParserGenerator {
             return ret;
         }
 
+        ret += expectedConst;
         ret += `        match self.peek::<0>() {\n`;
 
         const peek0Groups = new Map<string, { isBoxed: boolean, terminals: Set<string> }>();

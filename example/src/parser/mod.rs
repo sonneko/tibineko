@@ -15,9 +15,7 @@ use crate::tokenizer::tokenize::Tokenizer;
 // The runtime modules below are T1: byte-identical copies from
 // hydent-lang. Upstream is not clippy-clean under `-D warnings`, so the lints
 // are silenced on the module declarations instead of by patching vendored code:
-//   base_parser.rs:235  `optional`'s `parser_fn` does not need `mut`
-//   errors.rs:26        `IParseErr::build`'s `identifier` is unused (upstream
-//                       carries a `WARNING: identifier is ignored` comment)
+//   base_parser.rs:252  `optional`'s `parser_fn` does not need `mut`
 //   tracer.rs:14        `NopeTracer::trace`'s `name` is unused
 //
 // `dead_code` is allowed on the same modules for a different reason: the

@@ -1,9 +1,21 @@
 //! Unit tests for the parser. These live inside the crate, so they can see the
 //! `pub(super)` AST fields that the integration tests in `tests/` cannot.
 
+use crate::compiler::arena::Arena;
+use crate::compiler::context::CompilerFrontendContext;
+use crate::compiler::span::Span;
+use crate::compiler::symbol::SymbolFactory;
+use crate::diagnostic::stream::StockDiagnosticStream;
 use crate::parser::ast::{Entry, ListValue, Value, ValueItem};
+use crate::parser::ast_node::{ASTNode, TokenSet};
+use crate::parser::base_parser::BaseParser;
+use crate::parser::errors::ParseErr;
+use crate::parser::parse::Parser;
 use crate::parser::parse_source;
+use crate::parser::token_stream::TokenStream;
+use crate::parser::tracer::NopeTracer;
 use crate::parser::Ast;
+use crate::tokenizer::tokens::{Delimiter, Token};
 
 /// Collects a document's entries into owned values.
 ///
@@ -156,6 +168,11 @@ fn recovers_and_keeps_parsing() {
         .iter()
         .filter(|e| matches!(e, Entry::Pair(_)))
         .count();
+    // Only one pair is guaranteed here: after the missing `;`, recovery
+    // skips to the next sync point and may swallow the following pair's
+    // key, so pinning an exact count would pin recovery's resumption
+    // point, which is implementation-defined. (Tried `== 2`: the actual
+    // result is 1.)
     assert!(
         pairs >= 1,
         "recovery should keep at least one pair, got {pairs}"
@@ -184,4 +201,60 @@ fn renders_json_with_type_names_as_keys() {
     assert!(json.contains(r#""kind":"Pair""#), "{json}");
     assert!(json.contains("localhost"), "{json}");
     assert!(json.ends_with('}'), "{json}");
+}
+
+/// A node whose parse succeeds without consuming a token: the shape a
+/// product of only `?B` fields has when the inner parse fails and the
+/// option yields `None`.
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+struct ZeroWidth;
+
+impl ASTNode for ZeroWidth {
+    type Target = Self;
+    const FOLLOW_SETS: TokenSet = TokenSet::empty();
+    const FIRST_1_SETS: TokenSet = TokenSet::build_map(
+        false,
+        false,
+        false,
+        false,
+        &[Token::Delimiter(Delimiter::LeftBracket)],
+    );
+    const FIRST_2_SETS: TokenSet = TokenSet::empty();
+
+    fn get_error_situation(_: ParseErr) -> Option<Self::Target> {
+        None
+    }
+
+    fn ast_name() -> &'static str {
+        "ZeroWidth"
+    }
+}
+
+/// `repeat` must stop when an item parses successfully without consuming
+/// a token. Without the progress check, the same `[` is retried forever
+/// and the arena fills with empty items.
+#[test]
+fn repeat_stops_when_an_item_consumes_no_tokens() {
+    let source = "[";
+    let mut symbols = SymbolFactory::new(source);
+    let arena = Arena::new();
+    let tokens = TokenStream::new(vec![
+        (Token::Delimiter(Delimiter::LeftBracket), Span::new(0, 1)),
+        (Token::EndOfFile, Span::new(1, 1)),
+    ]);
+    let mut diagnostics = StockDiagnosticStream::new();
+    let mut parser: Parser<'_, '_, '_, _, NopeTracer> = Parser::new(
+        tokens,
+        CompilerFrontendContext::new(source, &arena, &mut symbols),
+        &mut diagnostics,
+    );
+
+    let items = parser
+        .repeat(|_: &mut Parser<'_, '_, '_, _, NopeTracer>| Ok(ZeroWidth))
+        .unwrap();
+    assert_eq!(
+        items.into_ref(&arena).count(),
+        1,
+        "one empty item, then stop"
+    );
 }

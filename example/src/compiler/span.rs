@@ -24,7 +24,12 @@ pub struct Span {
 /// actual source code segment.
 impl Span {
     /// Creates a new `Span`.
-    pub fn new(begin: usize, end: usize) -> Self {
+    ///
+    /// This is `const` on purpose: the generated parser's error `expected`
+    /// lists are `&'static [Token]`, and `$Span$` payload placeholders are
+    /// built with `Span::new(0, 0)`. The whole list only const-promotes to
+    /// `'static` when `Span::new` is const.
+    pub const fn new(begin: usize, end: usize) -> Self {
         Self {
             begin: begin as u32,
             end: end as u32,

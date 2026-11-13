@@ -212,7 +212,7 @@ comment, so after an update:
 grep -rn 'TIBINEKO-FORK' tibineko/gen/
 ```
 
-13 markers across 6 files. They cover the consumer's module paths, the `$...$`
+14 markers across 7 files (6 code files plus 2 in `gen/README.md`). They cover the consumer's module paths, the `$...$`
 handling, the `#fallback` / `#raw_token` pseudo-terminals, and the printer's
 hand-coded node names.
 
@@ -234,7 +234,10 @@ or as a marker to re-apply.
 
 - **64 tokens per category.** `TokenSet` stores keyword / operator / delimiter
   membership as `u64` bitmasks, and relies on those enums being `#[repr(u8)]`
-  with a stable order. Past 64, change `TokenSet` to `u128` in your copy.
+  with a stable order. The count is guarded on both sides: the generator
+  throws past 64 variants in a category, and `TokenSet::build_map` panics at
+  compile time on a discriminant of 64 or more. Past 64, change `TokenSet` to
+  `u128` in your copy.
 - **LL(2).** The analyzer computes FIRST over token *pairs* and reports
   FIRST/FOLLOW overlap. It throws on a nullable rule whose FIRST meets its
   FOLLOW, since that cannot be resolved with two tokens of lookahead.
@@ -248,8 +251,8 @@ or as a marker to re-apply.
 
 | Path | What |
 |---|---|
-| `gen/` | the generator (15 files, 2674 lines). `node gen/self_test.ts` runs its tests. |
-| `runtime/` | Rust runtime to copy into `src/parser/` (6 files, 680 lines). |
+| `gen/` | the generator (15 files, 3301 lines). `node gen/self_test.ts` runs its tests. |
+| `runtime/` | Rust runtime to copy into `src/parser/` (6 files, 764 lines). |
 | `seed/` | files to copy once and then own. |
 | `example/` | a small second language as a **real crate**, with generated output committed and tests. |
 | `docs/` | grammar, token map, and gotcha references. |
@@ -265,7 +268,7 @@ or as a marker to re-apply.
 
 | Job | Steps |
 |---|---|
-| **Generator** | assert no `package.json`/`node_modules` exist → `node gen/self_test.ts` → `node example/gen.ts` → `git diff --exit-code` on the four generated files |
+| **Generator** | assert no `package.json`/`node_modules` exist → `node gen/self_test.ts` → `node example/gen.ts` → `git diff --exit-code` on the four generated files and the three spec files |
 | **Example crate** | `cargo build` → `cargo test --lib` → `cargo test --test parse` → `cargo test` |
 | **Lint** | `cargo clippy --all-targets -- -D warnings` → `rustfmt --check` |
 
@@ -288,7 +291,7 @@ job logs are not reachable through the API.
 **Generator** — verified locally on Node v22.22.3 with **no `node_modules`
 present**:
 
-- `gen/self_test.ts` — 16 passed, 0 failed.
+- `gen/self_test.ts` — 43 passed, 0 failed.
 - Feeding hydent-lang's grammar and token map to this `gen/` reproduces the
   original `tsx`-based pipeline's output. `generated_parser.rs` and
   `generated_ast_printer.rs` match **byte for byte**; `generated_ast.rs` and
@@ -297,11 +300,14 @@ present**:
   reproduce all four byte for byte).
 - `example/gen.ts` is deterministic, and the committed Rust matches it exactly.
 
-**Runtime** — 5 of the 6 `runtime/*.rs` files are byte-identical to
+**Runtime** — at extraction, 5 of the 6 `runtime/*.rs` files were byte-identical to
 hydent-lang's working copies (`ast_node`, `base_parser`, `errors`, `recovery`,
 `token_stream`). `tracer.rs` drops `use std::{fmt, io};` and
 `use crate::compiler::span::Span;`, neither of which it uses — hydent masks
-that with a crate-level `#![allow(unused)]`.
+that with a crate-level `#![allow(unused)]`. The audit fixes below changed
+`ast_node`, `base_parser`, `errors`, and `token_stream` in this repo; only
+`recovery.rs` is still byte-identical to hydent's copy. All six remain
+byte-identical to their copies under `example/src/parser/`.
 
 **Rust** — there is no `cargo` in the environment where this was written, so
 **CI is the compiler**. Run
@@ -313,3 +319,7 @@ CI found bugs that reading the code had missed — a dropped `use IParseErr`, an
 inner attribute placed after `use` statements, `Diagnostic` lacking `Debug`,
 and `ArenaIterReader::Item` being `&mut T` rather than `T`. They are written up
 in [`docs/gotchas.md`](docs/gotchas.md).
+
+The audit fixes added 3 unit tests (and strengthened two integration
+assertions): the example crate now has **19 unit tests** and **9 integration
+tests** (28 passed, 0 failed) locally.
