@@ -33,6 +33,40 @@ export class TokenMap {
 
     public constructor(record: Record<string, string>) {
         this.map = record;
+        this.checkTokenCategorySizes();
+    }
+
+    /**
+     * `TokenSet` stores each token category as a `u64` bitmask indexed by the
+     * enum discriminant (`1 << (keyword as u8)`), so a category with more
+     * than 64 distinct variants cannot be represented: discriminant 64
+     * panics in debug builds and silently collides with another variant's
+     * bit in release builds. The generator cannot see the consumer enum's
+     * declaration order, but the token map is the full vocabulary the
+     * generator emits, so more than 64 distinct variants in one category
+     * guarantees at least one discriminant is out of range.
+     */
+    private checkTokenCategorySizes() {
+        const counts = new Map<string, Set<string>>();
+        for (const expr of Object.values(this.map)) {
+            const m = /Token::(Keyword|Operator|Delimiter)\((\w+)::(\w+)\)/.exec(expr);
+            if (!m) continue;
+            const [, category, , variant] = m;
+            let set = counts.get(category);
+            if (!set) {
+                set = new Set();
+                counts.set(category, set);
+            }
+            set.add(variant);
+        }
+        for (const [category, variants] of [...counts.entries()].sort()) {
+            if (variants.size > 64) {
+                throw new Error(
+                    `tokenmap: ${variants.size} distinct ${category} variants exceed the 64-token limit of TokenSet's u64 bitmask; ` +
+                    `split the category or widen TokenSet to u128 in your copy`
+                );
+            }
+        }
     }
 
     /**
@@ -43,11 +77,18 @@ export class TokenMap {
     public static fromCsv(csv: string): TokenMap {
         const map = new Map<string, string>();
         const duplicates: string[] = [];
-        for (const line of csv.split('\n')) {
+        for (const [index, line] of csv.split('\n').entries()) {
+            if (line.trim() === '') continue;
             const parts = line.split('"');
             if (parts.length >= 4 && parts[1] && parts[3]) {
                 if (map.has(parts[1])) duplicates.push(parts[1]);
                 map.set(parts[1], parts[3]);
+            } else {
+                // A malformed row used to be skipped silently, and the
+                // failure only surfaced later as an unrelated
+                // "no token definition" error for a literal that looked
+                // present. Fail here, naming the line.
+                throw new Error(`tokenmap: line ${index + 1} is not a "literal", "TokenExpr" pair: ${JSON.stringify(line)}`);
             }
         }
         if (duplicates.length > 0) {
@@ -96,9 +137,11 @@ export class Analyzer {
     }
 
     public analyze(): [IR, string] {
+        this.validateGrammar();
         this.computeNullable();
         this.computeFirst();
         this.computeFollow();
+        this.checkDeadBranches();
 
         const funcs: ParserFunction[] = [];
         for (const rule of this.grammar) {
@@ -112,12 +155,84 @@ export class Analyzer {
             }
         }
         this.computeCycle(funcs);
-        this.checkLL2Confilict(funcs);
+        this.checkLL2Confilict();
 
         return [funcs, this.outputs.join("\n\n")];
     }
 
-    public checkLL2Confilict(funcs: IR) {
+    /**
+     * Structural checks that used to slip through and surface much later as
+     * broken Rust (a call to a `parse_NoSuch()` that does not exist, a
+     * `parse_A` emitted twice, a struct field declared twice). Failing here
+     * names the grammar rule instead of a generated line.
+     */
+    private validateGrammar() {
+        const seen = new Set<string>();
+        for (const rule of this.grammar) {
+            if (seen.has(rule.name)) {
+                throw new Error(`grammar: duplicate rule "${rule.name}"; rename one of them`);
+            }
+            seen.add(rule.name);
+        }
+
+        for (const rule of this.grammar) {
+            if (rule.kind === "Branch") {
+                if (rule.variants.length === 0) {
+                    throw new Error(`grammar: branch "${rule.name}" has no variants`);
+                }
+                for (const v of rule.variants) {
+                    if (!this.ruleMap.has(v.name)) {
+                        throw new Error(`grammar: branch "${rule.name}" refers to undefined rule "${v.name}"`);
+                    }
+                }
+            } else {
+                const fields = new Set<string>();
+                for (const m of rule.members) {
+                    if (m.kind === "Terminal") {
+                        // Throws with a clear message when the literal has
+                        // no token-map entry.
+                        this.tokenMap.get(m.value);
+                    } else {
+                        if (!this.ruleMap.has(m.type.name)) {
+                            throw new Error(`grammar: product "${rule.name}" field "${m.name}" refers to undefined rule "${m.type.name}"`);
+                        }
+                        if (fields.has(m.name)) {
+                            throw new Error(`grammar: product "${rule.name}" declares field "${m.name}" twice`);
+                        }
+                        fields.add(m.name);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * A branch whose FIRST set is empty can never match: the generated
+     * parser dispatches on the next token, and no token leads anywhere, so
+     * every use of the branch fails. The one exception is a `#fallback`
+     * variant, which is reached without a token (see `unmatchedFallback`).
+     * A single dead variant in an otherwise live branch is only a warning:
+     * nullable empty variants are a legitimate (if usually mistaken) way to
+     * spell an optional alternative, and the LL(2) check below still
+     * rejects the cases that are actually ambiguous.
+     */
+    private checkDeadBranches() {
+        for (const rule of this.grammar) {
+            if (rule.kind !== "Branch") continue;
+            const first = this.firstSets.get(rule.name);
+            if (first && first.size === 0 && !rule.variants.some(v => this.isFallbackRule(v.name))) {
+                throw new Error(`grammar: branch "${rule.name}" can never match (its FIRST set is empty); every variant is empty or refers to an empty rule`);
+            }
+            for (const v of rule.variants) {
+                const variantFirst = this.firstSets.get(v.name);
+                if (variantFirst && variantFirst.size === 0 && !this.isFallbackRule(v.name)) {
+                    this.outputs.push(`    👀 WARNING: branch "${rule.name}" variant "${v.name}" can never match (its FIRST set is empty)`);
+                }
+            }
+        }
+    }
+
+    public checkLL2Confilict() {
         const allRules = this.grammar.map(v => v.name);
         allRules.forEach(name => {
             const firstSets = this.firstSets.get(name)!;
@@ -130,10 +245,6 @@ export class Analyzer {
             const intersection = new Set([...firstTerminals].filter(token => followSets.has(token)));
             if (intersection.size !== 0) {
                 this.outputs.push(`    👀 WARNING: Tokens in both First and Follow sets: ${[...intersection].join(", ")} in Rule ${name}`);
-                funcs
-                    .filter(v => v.kind !== "hook")
-                    .filter(v => v.astTypeName === name)
-                    .forEach(s => s.firstAndFollowConflict = true);
                 if (this.nullable.has(name)) {
                     this.outputs.push(`❌ LL(2) Conflict in Nullable Rule "${name}":`);
                     this.outputs.push(`  Tokens in both First and Follow sets: ${[...intersection].sort().join(", ")}`);
@@ -339,8 +450,19 @@ export class Analyzer {
                             let nextFirsts: TokenSeq[] = [];
 
                             if (next.kind === "Terminal") {
-                                nextFirsts = [[this.tokenMap.get(next.value)]];
-                                allSubsequentNullable = false;
+                                // Pseudo-terminals declare a manual parser
+                                // hook, not a token: like computeFirst, they
+                                // contribute nothing here. Treating them as
+                                // a real token used to put Token::Invalid
+                                // into FOLLOW sets, which matches every
+                                // non-EOF token and broke repeat/recovery
+                                // sync points.
+                                if (next.value === "#fallback" || next.value === "#raw_token") {
+                                    nextFirsts = [[]];
+                                } else {
+                                    nextFirsts = [[this.tokenMap.get(next.value)]];
+                                    allSubsequentNullable = false;
+                                }
                             } else {
                                 const nName = next.type.name;
                                 const nMod = next.type.modifier;
@@ -514,6 +636,23 @@ export class Analyzer {
         const mapPeek1: Record<string, Record<string, string[]>> = {};
         const mapPeek1Fallback: Record<string, string[]> = {};
 
+        // `with "boxed"` on a variant forces boxing, exactly like on a
+        // product field (docs/grammar.md). The note is a substring match,
+        // so `with "boxed: recursive"` works too.
+        const boxedVariants = new Set(
+            rule.variants.filter(v => v.note.includes("boxed")).map(v => v.name),
+        );
+        const isBoxed = (name: string) => boxedVariants.has(name);
+
+        // Only one catch-all variant is supported: the generated parser
+        // falls back to a single `unmatchedFallback`, so a second one
+        // used to be dropped silently from the enum.
+        const fallbackVariants = rule.variants.filter(variant => this.isFallbackRule(variant.name));
+        if (fallbackVariants.length > 1) {
+            const names = fallbackVariants.map(v => `"${v.name}"`).join(", ");
+            throw new Error(`grammar: branch "${rule.name}" has ${fallbackVariants.length} #fallback variants (${names}); only one catch-all variant is supported`);
+        }
+
         for (const v of rule.variants) {
             const vSet = this.firstSets.get(v.name);
             const seqs: TokenSeq[] = [];
@@ -555,7 +694,7 @@ export class Analyzer {
                 branchesJudgebleInPeek0.push({
                     astTypeName: astName(variants[0]),
                     firstTerminal: tokenName(t0),
-                    isBoxed: false,
+                    isBoxed: isBoxed(variants[0]),
                 });
             } else {
                 const secondMap = mapPeek1[t0] || {};
@@ -567,7 +706,7 @@ export class Analyzer {
                             astTypeName: astName(v),
                             firstTerminal: tokenName(t0),
                             secondTerminal: tokenName("_"),
-                            isBoxed: false,
+                            isBoxed: isBoxed(v),
                         });
                     });
                 }
@@ -579,7 +718,7 @@ export class Analyzer {
                             astTypeName: astName(varsInT1[0]),
                             firstTerminal: tokenName(t0),
                             secondTerminal: tokenName(t1),
-                            isBoxed: false,
+                            isBoxed: isBoxed(varsInT1[0]),
                         });
                     } else {
                         varsInT1.forEach(v => {
@@ -587,7 +726,7 @@ export class Analyzer {
                                 astTypeName: astName(v),
                                 firstTerminal: tokenName(t0),
                                 secondTerminal: tokenName(t1),
-                                isBoxed: false,
+                                isBoxed: isBoxed(v),
                             });
                         });
                     }
@@ -597,7 +736,7 @@ export class Analyzer {
                     branchesFallbackInPeek1.push({
                         astTypeName: astName(fallbacks[0]),
                         firstTerminal: tokenName(t0),
-                        isBoxed: false,
+                        isBoxed: isBoxed(fallbacks[0]),
                     });
                 }
             }
@@ -609,10 +748,13 @@ export class Analyzer {
             [...follow].sort().forEach(t => syncPointsTerminals.push(tokenName(t)));
         }
 
-        let firstTerminals: RustTokenTypeName[] = [];
+        // FIRST is a set of token *sequences* (up to two tokens for LL(2)),
+        // kept as real arrays: the old comma-joined strings ("TokenA,TokenB")
+        // leaked into ir.json, where consumers had to split them back apart.
+        let firstTerminals: RustTokenTypeName[][] = [];
         const firstSets = this.firstSets.get(rule.name);
         if (firstSets) {
-            firstTerminals = [...firstSets].map(tokenName);
+            firstTerminals = [...firstSets].map(parseSeqKey);
         }
 
         return {
@@ -622,12 +764,11 @@ export class Analyzer {
             expectedTerminals,
             syncPointsTerminals,
             firstTerminals,
-            firstAndFollowConflict: false,
             branchesJudgebleInPeek0,
             branchesJudgebleInPeek1,
             branchesFallbackInPeek1,
             unmatchedFallback: unmatchedFallback
-                ? { astTypeName: astName(unmatchedFallback.name), isBoxed: false }
+                ? { astTypeName: astName(unmatchedFallback.name), isBoxed: isBoxed(unmatchedFallback.name) }
                 : null,
             branchesNeedBacktrack
         };
@@ -673,10 +814,12 @@ export class Analyzer {
             follow.forEach(t => syncPointsTerminals.push(tokenName(t)));
         }
 
-        let firstTerminals: RustTokenTypeName[] = [];
+        // See analyzeBranchRule: FIRST sequences are real arrays, not
+        // comma-joined strings.
+        let firstTerminals: RustTokenTypeName[][] = [];
         const firstSets = this.firstSets.get(rule.name);
         if (firstSets) {
-            firstTerminals = [...firstSets].map(tokenName);
+            firstTerminals = [...firstSets].map(parseSeqKey);
         }
 
         return {
@@ -684,7 +827,6 @@ export class Analyzer {
             functionName: fnName(rule.name),
             astTypeName: astName(rule.name),
             syncPointsTerminals,
-            firstAndFollowConflict: false,
             firstTerminals,
             elements,
         };

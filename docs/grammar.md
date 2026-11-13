@@ -172,6 +172,14 @@ Two literals are special: `#fallback` and `#raw_token` are *pseudo-terminals*.
 They declare a hand-written parser hook and are excluded from the FIRST/FOLLOW
 sets entirely. See [`token-map.md`](token-map.md).
 
+A branch may have at most one `#fallback` variant: the IR has a single
+`unmatchedFallback` slot, so a second one would silently disappear. Generation
+fails loudly instead:
+
+```
+grammar: branch "S" has 2 #fallback variants ("A", "B"); only one catch-all variant is supported
+```
+
 ---
 
 ## What the analyzer checks
@@ -187,9 +195,10 @@ Generation runs `analyze.ts`, which computes nullable rules, FIRST over token
 
 This is common and usually harmless in repetition-heavy grammars. It means a
 token can both start and follow the rule, so the generated `repeat` needs its
-second-token lookahead (`FIRST_2_SETS`) to decide whether to continue. The
-analyzer sets `firstAndFollowConflict` on the affected rules, which is what
-makes the generated code use the two-token path.
+second-token lookahead (`FIRST_2_SETS`, computed by `getFirst2Terminals`) to
+decide whether to continue. There used to be a `firstAndFollowConflict` flag
+on the IR for this; it was dead — nothing read it — so it was removed, and
+the two-token path is driven by the FIRST/FOLLOW sets alone.
 
 **Error** — the same overlap in a rule that is also *nullable*:
 

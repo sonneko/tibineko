@@ -79,9 +79,35 @@ impl TokenSet {
 
         while i < tokens.len() {
             match tokens[i] {
-                Token::Keyword(keyword) => keywords_bits |= 1 << (keyword as u8),
-                Token::Operator(operator) => operators_bits |= 1 << (operator as u8),
-                Token::Delimiter(delimiter) => delimiters_bits |= 1 << (delimiter as u8),
+                // The bitmask is a u64, so a discriminant of 64 or more
+                // cannot be represented: in debug builds the shift below
+                // panics, in release builds it wraps and silently sets
+                // another variant's bit. Fail at compile time (this runs
+                // in const context) with a message naming the limit
+                // instead. The generator also rejects token maps with
+                // more than 64 variants in one category; see
+                // `gen/analyze.ts: TokenMap::checkTokenCategorySizes`.
+                Token::Keyword(keyword) => {
+                    let discriminant = keyword as u8;
+                    if discriminant >= 64 {
+                        panic!("TokenSet: token discriminant 64 or above exceeds the u64 bitmask (64-token limit)");
+                    }
+                    keywords_bits |= 1 << discriminant;
+                }
+                Token::Operator(operator) => {
+                    let discriminant = operator as u8;
+                    if discriminant >= 64 {
+                        panic!("TokenSet: token discriminant 64 or above exceeds the u64 bitmask (64-token limit)");
+                    }
+                    operators_bits |= 1 << discriminant;
+                }
+                Token::Delimiter(delimiter) => {
+                    let discriminant = delimiter as u8;
+                    if discriminant >= 64 {
+                        panic!("TokenSet: token discriminant 64 or above exceeds the u64 bitmask (64-token limit)");
+                    }
+                    delimiters_bits |= 1 << discriminant;
+                }
                 Token::Comment(_) => {}
                 Token::Invalid => any = true,
                 _ => panic!("Invalid token in TokenSet"),

@@ -1,9 +1,12 @@
-import { describe, it, match, or } from './test_utility.ts';
-import { analyze, Analyzer } from './analyze.ts';
+import { describe, it, match } from './test_utility.ts';
+import { analyze, Analyzer, TokenMap } from './analyze.ts';
 import type {Grammar} from './ast.ts';
 import { ASTTypeGenerator } from './gen_ast_type.ts';
-import { ParserGenerator } from './gen_parser.ts';
+import { expectedTokenValue, ParserGenerator } from './gen_parser.ts';
 import { parse } from "./parse.ts";
+import { parseASTSizeCheckerResult } from "./check_ast_size.ts";
+import { generateTokenTypeMap } from "./gen_tokenmap.ts";
+import { generateMermaidHtml } from "./gen_mermaid.ts";
 
 describe('Parser (parse.ts)', () => {
     it('should parse Branch and Product rules correctly', () => {
@@ -43,6 +46,118 @@ describe('Parser (parse.ts)', () => {
         const members = (ast[0] as any).members;
         match(members[0].type.modifier).toBe('List');
         match(members[1].type.modifier).toBe('Option');
+    });
+
+    it('should not let a block comment swallow the following rule', () => {
+        const ast = parse(`/* c1 */ product A with "a" /* c2 */ product B with "b"`);
+        match(ast.length).toBe(2);
+        match((ast[0] as any).name).toBe('A');
+        match((ast[1] as any).name).toBe('B');
+    });
+
+    it('should accept a multi-line block comment', () => {
+        const ast = parse(`/* line one\nline two */ product A with "a"`);
+        match(ast.length).toBe(1);
+        match((ast[0] as any).name).toBe('A');
+    });
+
+    it('should accept a line comment at end of file without a trailing newline', () => {
+        const ast = parse(`product A with "a" // trailing`);
+        match(ast.length).toBe(1);
+        match((ast[0] as any).name).toBe('A');
+    });
+});
+
+describe('parseASTSizeCheckerResult (check_ast_size.ts)', () => {
+    it('should return every entry in the report, not just the first', () => {
+        const result = parseASTSizeCheckerResult("===BEGIN_REPORT===\nFoo:8\nBar:16\nBaz:24\n===END_REPORT===\n");
+        match(result.length).toBe(3);
+        match(result).toContainEqual({ ast: 'Foo', size: 8 });
+        match(result).toContainEqual({ ast: 'Bar', size: 16 });
+        match(result).toContainEqual({ ast: 'Baz', size: 24 });
+    });
+
+    it('should return an empty list when there is no report', () => {
+        match(parseASTSizeCheckerResult("no report here").length).toBe(0);
+    });
+});
+
+describe('generateTokenTypeMap (gen_tokenmap.ts)', () => {
+    it('should strip every $ placeholder, not just the first two', () => {
+        const out = generateTokenTypeMap(new TokenMap({ "hello": "Token::Foo($A$, $B$)" }));
+        match(out).toContain('Token::Foo(A, B)');
+    });
+
+    it('should escape quote and backslash operator literals in byte literals', () => {
+        const out = generateTokenTypeMap(new TokenMap({
+            "'": "Token::Operator(Operator::Quote)",
+            "\\": "Token::Operator(Operator::Backslash)",
+        }));
+        match(out).toContain("Some(b'\\'')");
+        match(out).toContain("Some(b'\\\\')");
+    });
+
+    it('should escape non-ASCII literals as UTF-8 byte escapes', () => {
+        const out = generateTokenTypeMap(new TokenMap({ "ééééé": "Token::Keyword(Keyword::Foo)" }));
+        match(out).toContain('b"\\xc3\\xa9');
+    });
+
+    it('should route short non-Keyword literals to a scanner table', () => {
+        const out = generateTokenTypeMap(new TokenMap({
+            "ab": "Token::Foo",
+            "@@": "Token::Bar",
+        }));
+        // Word-like short literals are looked up as identifier-shaped runs.
+        match(out).toContain('b"ab" => Token::Foo,');
+        // Punctuation-shaped literals are only reachable through the trie.
+        match(out).toContain("Some(b'@')");
+        match(out).toContain('Ok(Token::Bar)');
+    });
+
+    it('should walk non-ASCII operator literals byte by byte in the trie', () => {
+        const out = generateTokenTypeMap(new TokenMap({
+            "é": "Token::Operator(Operator::EAcute)",
+        }));
+        // "é" is two UTF-8 bytes (0xC3 0xA9); a trie arm for the single
+        // UTF-16 code unit could never match the byte stream.
+        match(out).toContain("Some(b'\\xc3')");
+        match(out).toContain("Some(b'\\xa9')");
+    });
+});
+
+describe('TokenMap', () => {
+    it('should fail loudly on a malformed CSV row, naming the line', () => {
+        match(() => TokenMap.fromCsv('"a", "TokenA"\nthis is not csv\n"b", "TokenB"\n')).toThrowError('tokenmap: line 2');
+    });
+
+    it('should skip blank lines in a tokenmap CSV', () => {
+        const map = TokenMap.fromCsv('\n"a", "TokenA"\n\n"b", "TokenB"\n');
+        match(Object.keys(map.getAll()).length).toBe(2);
+    });
+
+    it('should reject more than 64 variants in one token category', () => {
+        const record: Record<string, string> = {};
+        for (let i = 0; i < 65; i++) {
+            record[`kw${i}xx`] = `Token::Keyword(Keyword::K${i})`;
+        }
+        match(() => new TokenMap(record)).toThrowError('64-token limit');
+        const ok: Record<string, string> = {};
+        for (let i = 0; i < 64; i++) {
+            ok[`kw${i}xx`] = `Token::Keyword(Keyword::K${i})`;
+        }
+        match(new TokenMap(ok)).toBeDefined();
+    });
+});
+
+describe('generateMermaidHtml (gen_mermaid.ts)', () => {
+    it('should define branch classes under the same name it inherits from', () => {
+        const html = generateMermaidHtml([
+            { kind: 'Branch', name: 'Value', variants: [{ name: 'NumberLiteral', note: '' }] },
+            { kind: 'Product', name: 'NumberLiteral', members: [{ kind: 'Terminal', value: '#int', note: '' }] },
+        ]);
+        match(html).toContain('class Value');
+        match(html).toContain('Value <|-- NumberLiteral');
+        match(html.includes('class _Value')).toBe(false);
     });
 });
 
@@ -370,11 +485,14 @@ describe('Analyzer', () => {
 
             const addExprRef = [...exprIR.branchesJudgebleInPeek1][0];
 
-            or(() => {
-                match(exprElement.kind).toBe('boxed');
-            }, () => {
-                match(addExprRef.isBoxed).toBe(true);
-            },);
+            // Exactly one edge of the cycle is boxed: the DFS back-edge
+            // (Expr -> AddExpr, the branch alternative). The tree edge
+            // (AddExpr -> Expr, the product field) stays inline — boxing
+            // both would compile but add an indirection for nothing. The
+            // old test accepted either one via `or()`, which hid a failure
+            // in the other; assert both sides precisely instead.
+            match(exprElement.kind).toBe('normal');
+            match(addExprRef.isBoxed).toBe(true);
         });
     });
 
@@ -391,10 +509,17 @@ describe('Analyzer', () => {
                 ]},
             ];
             const [ir, warnings] = analyze(grammar, mockTokenMap);
-            const rule = ir.find(item => item.astTypeName === 'A');
 
-            match(rule !== undefined && rule.kind !== 'hook' && rule.firstAndFollowConflict).toBe(true);
+            // The overlap is reported as a warning, and the generated code
+            // takes the two-token path: FIRST_2_SETS carries the second
+            // token, which is what lets `repeat` decide whether to continue.
+            // (There used to be a `firstAndFollowConflict` flag on the IR
+            // for this; nothing ever read it, so it was removed.)
             match(warnings).toContain('TokenA');
+            const generated = new ASTTypeGenerator().generateASTType(ir);
+            match(generated).toContain(
+                'const FIRST_2_SETS: TokenSet = TokenSet::build_map(false, false, false, false, &[TokenB]);'
+            );
         });
 
         it('should throw for a nullable rule whose two-token FIRST starts in FOLLOW', () => {
@@ -442,6 +567,235 @@ describe('Analyzer', () => {
             match(() => {
                 analyzer.analyze();
             }).toThrowError('Grammar conflict');
+        });
+    });
+
+    describe('Grammar validation', () => {
+        it('should reject duplicate rule names', () => {
+            const grammar: Grammar = [
+                { kind: 'Product', name: 'A', members: [{ kind: 'Terminal', value: 'a', note: '' }] },
+                { kind: 'Product', name: 'A', members: [{ kind: 'Terminal', value: 'b', note: '' }] },
+            ];
+            match(() => analyze(grammar, mockTokenMap)).toThrowError('duplicate rule "A"');
+        });
+
+        it('should reject references to undefined rules', () => {
+            const branchGrammar: Grammar = [
+                { kind: 'Branch', name: 'S', variants: [{ name: 'Missing', note: '' }] },
+            ];
+            match(() => analyze(branchGrammar, mockTokenMap)).toThrowError('undefined rule "Missing"');
+            const fieldGrammar: Grammar = [
+                { kind: 'Product', name: 'P', members: [{ kind: 'Field', name: 'x', type: { name: 'NoSuch', modifier: 'None' }, note: '' }] },
+            ];
+            match(() => analyze(fieldGrammar, mockTokenMap)).toThrowError('undefined rule "NoSuch"');
+        });
+
+        it('should reject duplicate field names in a product', () => {
+            const grammar: Grammar = [
+                { kind: 'Product', name: 'P', members: [
+                    { kind: 'Field', name: 'x', type: { name: 'A', modifier: 'None' }, note: '' },
+                    { kind: 'Field', name: 'x', type: { name: 'A', modifier: 'None' }, note: '' },
+                ]},
+                { kind: 'Product', name: 'A', members: [{ kind: 'Terminal', value: 'a', note: '' }] },
+            ];
+            match(() => analyze(grammar, mockTokenMap)).toThrowError('declares field "x" twice');
+        });
+
+        it('should reject a branch with no variants, and a branch that can never match', () => {
+            const emptyBranch: Grammar = [
+                { kind: 'Branch', name: 'S', variants: [] },
+            ];
+            match(() => analyze(emptyBranch, mockTokenMap)).toThrowError('has no variants');
+            const deadBranch: Grammar = [
+                { kind: 'Branch', name: 'S', variants: [{ name: 'E', note: '' }] },
+                { kind: 'Product', name: 'E', members: [] },
+            ];
+            match(() => analyze(deadBranch, mockTokenMap)).toThrowError('can never match');
+        });
+
+        it('should warn about a single dead variant instead of failing the whole grammar', () => {
+            const grammar: Grammar = [
+                { kind: 'Product', name: 'S', members: [
+                    { kind: 'Field', name: 'a', type: { name: 'A', modifier: 'None' }, note: '' },
+                ]},
+                { kind: 'Branch', name: 'A', variants: [
+                    { name: 'A_a', note: '' },
+                    { name: 'A_empty', note: '' },
+                ]},
+                { kind: 'Product', name: 'A_a', members: [{ kind: 'Terminal', value: 'a', note: '' }] },
+                { kind: 'Product', name: 'A_empty', members: [] },
+            ];
+            const [, warnings] = analyze(grammar, mockTokenMap);
+            match(warnings).toContain('variant "A_empty" can never match');
+        });
+    });
+
+    describe('#fallback in FOLLOW', () => {
+        it('should not let #fallback pollute FOLLOW sets with Token::Invalid', () => {
+            const grammar: Grammar = [
+                { kind: 'Product', name: 'S', members: [
+                    { kind: 'Field', name: 'x', type: { name: 'A', modifier: 'None' }, note: '' },
+                    { kind: 'Terminal', value: '#fallback', note: '' },
+                ]},
+                { kind: 'Product', name: 'A', members: [{ kind: 'Terminal', value: 'a', note: '' }] },
+            ];
+            const [ir] = analyze(grammar, mockTokenMap);
+            const a = ir.find(item => item.astTypeName === 'A') as any;
+            match(a).toBeDefined();
+            match(a.syncPointsTerminals.includes('Token::Invalid')).toBe(false);
+            const generated = new ASTTypeGenerator().generateASTType(ir);
+            match(generated.includes('FOLLOW_SETS: TokenSet = TokenSet::build_map(false, false, false, true, &[Token::Invalid])')).toBe(false);
+        });
+    });
+
+    describe('Branch variants', () => {
+        it('should honour with "boxed" on a branch variant', () => {
+            const grammar: Grammar = [
+                { kind: 'Branch', name: 'E', variants: [{ name: 'S', note: 'boxed' }] },
+                { kind: 'Product', name: 'S', members: [{ kind: 'Terminal', value: 'a', note: '' }] },
+            ];
+            const [ir] = analyze(grammar, mockTokenMap);
+            const e = ir.find(item => item.astTypeName === 'E') as any;
+            match(e).toBeDefined();
+            match(e.branchesJudgebleInPeek0[0].isBoxed).toBe(true);
+            const generated = new ASTTypeGenerator().generateASTType(ir);
+            match(generated).toContain('S(ArenaBox<S>)');
+        });
+
+        it('should reject two #fallback variants in one branch instead of dropping one', () => {
+            const grammar: Grammar = [
+                { kind: 'Branch', name: 'S', variants: [
+                    { name: 'F1', note: '' },
+                    { name: 'F2', note: '' },
+                ]},
+                { kind: 'Product', name: 'F1', members: [{ kind: 'Terminal', value: '#fallback', note: '' }] },
+                { kind: 'Product', name: 'F2', members: [{ kind: 'Terminal', value: '#fallback', note: '' }] },
+            ];
+            match(() => analyze(grammar, mockTokenMap)).toThrowError('2 #fallback variants');
+        });
+    });
+
+    describe('IR firstTerminals', () => {
+        it('should store FIRST sequences as arrays, not comma-joined strings', () => {
+            const grammar: Grammar = [
+                { kind: 'Product', name: 'A', members: [
+                    { kind: 'Terminal', value: 'a', note: '' },
+                    { kind: 'Terminal', value: 'b', note: '' },
+                ]},
+            ];
+            const [ir] = analyze(grammar, mockTokenMap);
+            const a = ir.find(item => item.astTypeName === 'A') as any;
+            match(JSON.stringify(a.firstTerminals)).toBe(JSON.stringify([["TokenA", "TokenB"]]));
+        });
+    });
+
+    describe('Product FIRST/FOLLOW sets', () => {
+        it('should dedupe and sort product FIRST/FOLLOW sets like the branch side', () => {
+            const grammar: Grammar = [
+                { kind: 'Product', name: 'S', members: [
+                    { kind: 'Field', name: 'a', type: { name: 'A', modifier: 'None' }, note: '' },
+                    { kind: 'Field', name: 'b', type: { name: 'B', modifier: 'None' }, note: '' },
+                ]},
+                { kind: 'Branch', name: 'A', variants: [
+                    { name: 'A1', note: '' },
+                    { name: 'A2', note: '' },
+                ]},
+                { kind: 'Product', name: 'A1', members: [
+                    { kind: 'Terminal', value: 'a', note: '' },
+                    { kind: 'Terminal', value: 'b', note: '' },
+                ]},
+                { kind: 'Product', name: 'A2', members: [
+                    { kind: 'Terminal', value: 'a', note: '' },
+                    { kind: 'Terminal', value: 'c', note: '' },
+                ]},
+                { kind: 'Product', name: 'B', members: [{ kind: 'Terminal', value: 'b', note: '' }] },
+            ];
+            const [ir] = analyze(grammar, mockTokenMap);
+            const generated = new ASTTypeGenerator().generateASTType(ir);
+            // S's FIRST is TokenA once per sequence without the fix.
+            const sBlock = generated.split('impl ASTNode for S {')[1].split('impl ASTNode for ')[0];
+            match(sBlock.includes('TokenA, TokenA')).toBe(false);
+            match(sBlock).toContain('FIRST_1_SETS: TokenSet = TokenSet::build_map(false, false, false, false, &[TokenA]);');
+        });
+    });
+
+    describe('Branch error expected lists', () => {
+        const payloadTokenMap = {
+            ...mockTokenMap,
+            '#int': 'Token::Literal(Literal::IntegerLiteral($i32$))',
+            '#string': 'Token::Literal(Literal::StringLiteral($Span$))',
+            '#bool': 'Token::Literal(Literal::BoolLiteral($bool$))',
+            '#identifier': 'Token::Identifier($Span$)',
+            '[': 'Token::Delimiter(Delimiter::LeftBracket)',
+            '(': 'Token::Delimiter(Delimiter::LeftParen)',
+        };
+
+        it('should include $-payload tokens in error expected lists', () => {
+            const grammar: Grammar = [
+                { kind: 'Branch', name: 'Value', variants: [
+                    { name: 'NumberLiteral', note: '' },
+                    { name: 'StringLiteral', note: '' },
+                    { name: 'BoolLiteral', note: '' },
+                    { name: 'ListValue', note: '' },
+                    { name: 'GroupedValue', note: '' },
+                ]},
+                { kind: 'Product', name: 'NumberLiteral', members: [{ kind: 'Terminal', value: '#int', note: '' }] },
+                { kind: 'Product', name: 'StringLiteral', members: [{ kind: 'Terminal', value: '#string', note: '' }] },
+                { kind: 'Product', name: 'BoolLiteral', members: [{ kind: 'Terminal', value: '#bool', note: '' }] },
+                { kind: 'Product', name: 'ListValue', members: [{ kind: 'Terminal', value: '[', note: '' }] },
+                { kind: 'Product', name: 'GroupedValue', members: [{ kind: 'Terminal', value: '(', note: '' }] },
+            ];
+            const [ir] = analyze(grammar, payloadTokenMap);
+            const generated = new ParserGenerator().generateParser(ir);
+            match(generated).toContain('Token::Literal(Literal::IntegerLiteral(0))');
+            match(generated).toContain('Token::Literal(Literal::StringLiteral(Span::new(0, 0)))');
+            match(generated).toContain('Token::Literal(Literal::BoolLiteral(false))');
+            match(generated).toContain('Token::Delimiter(Delimiter::LeftBracket)');
+            match(generated).toContain('Token::Delimiter(Delimiter::LeftParen)');
+            // The list is &'static [Token] and contains a Span::new(0, 0),
+            // which does not const-promote in an inline array, so it lives
+            // in a function-local const item the error references.
+            match(generated).toContain('const EXPECTED_VALUE: &[Token] = &[');
+            match(generated).toContain('                EXPECTED_VALUE,');
+            // No identifier is expected here, so the flag must be false.
+            match(generated).toContain('Self::Error::build(\n                false,');
+        });
+
+        it('should flag an expected identifier, and list the other tokens', () => {
+            const grammar: Grammar = [
+                { kind: 'Branch', name: 'Entry', variants: [
+                    { name: 'Pair', note: '' },
+                    { name: 'Note', note: '' },
+                ]},
+                { kind: 'Product', name: 'Pair', members: [
+                    { kind: 'Field', name: 'key', type: { name: 'Identifier', modifier: 'None' }, note: '' },
+                    { kind: 'Terminal', value: 'a', note: '' },
+                ]},
+                { kind: 'Product', name: 'Identifier', members: [{ kind: 'Terminal', value: '#identifier', note: '' }] },
+                { kind: 'Product', name: 'Note', members: [{ kind: 'Terminal', value: '#doc_comment', note: '' }] },
+            ];
+            const [ir] = analyze(grammar, payloadTokenMap);
+            const generated = new ParserGenerator().generateParser(ir);
+            // The identifier itself cannot be listed: its payload is a
+            // Symbol, which has no public const constructor. Its
+            // presence is conveyed by the `true` flag instead, and the
+            // other expected token (the doc comment) is listed.
+            match(generated).toContain('Token::Comment(Comment::DocComment(Span::new(0, 0)))');
+            match(generated.includes('Token::Identifier(Span::new(0, 0))')).toBe(false);
+            match(generated).toContain('Self::Error::build(\n                true,');
+        });
+
+        it('should not fabricate values it cannot construct const-ly', () => {
+            // Identifier: Symbol payload, no const constructor.
+            match(expectedTokenValue('Token::Identifier($Span$)')).toBe(null);
+            // Float literals: the token payload is a wrapper type
+            // (HashableFloat<f32>), not a plain f32.
+            match(expectedTokenValue('Token::Literal(Literal::FloatLiteral($f32$)')).toBe(null);
+            // Unknown payload types stay out of the list.
+            match(expectedTokenValue('Token::Literal(Literal::Custom($MyType$)')).toBe(null);
+            // The fabricable ones still work.
+            match(expectedTokenValue('Token::Literal(Literal::IntegerLiteral($i32$))')).toBe('Token::Literal(Literal::IntegerLiteral(0))');
+            match(expectedTokenValue('Token::Literal(Literal::CharLiteral($char$))')).toBe("Token::Literal(Literal::CharLiteral('\\0'))");
         });
     });
 });

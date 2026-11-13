@@ -94,12 +94,16 @@ parser wants to accept".
 | Output | Rule |
 |---|---|
 | `LONG_KEYWORDS_MAP` (`phf::Map<&[u8], Token>`) | literals **not** starting with `#` and length >= 5, sorted longest first |
-| `scan_short_keywords(&[u8]) -> Token` | literals not starting with `#`, length < 5, whose token expression contains `Keyword` |
-| `scan_operator_or_delimiter(&mut Tokenizer)` | a `match` on the next byte, walking a trie for multi-character operators |
+| `scan_short_keywords(&[u8]) -> Token` | literals not starting with `#`, length < 5, whose first byte is word-like (`[A-Za-z_]`) — any token category, not only `Keyword` |
+| `scan_operator_or_delimiter(&mut Tokenizer)` | a `match` on the next byte, walking a trie (over UTF-8 bytes) for multi-character operators — and any literal whose first byte is not word-like |
 
 Note that the length-5 split is on the *literal*, not on whether it is a
 keyword — so a five-character operator lands in `LONG_KEYWORDS_MAP`. That is
-harmless (it is keyed by byte string) but surprising on first read.
+harmless (it is keyed by byte string) but surprising on first read. Routing is
+by first byte: a short literal such as `"ab"` goes to the short table even
+when it is not a keyword, and a non-word-start literal such as `"@@"` goes to
+the trie. `#`-literals are never scanned; they are pseudo-terminals handled by
+hand-written parsers.
 
 A language with no keywords at all emits an empty `phf_map!{}` and a
 single-arm `match`. Both are legal Rust but trip clippy, so the generator
@@ -123,7 +127,25 @@ Token::Invalid            => any = true,
 So the three enums must be `#[repr(u8)]`, have fewer than 64 variants each, and
 **keep a stable order** — the bitmask in the generated parser and the scanner
 tables are only in sync if the discriminants do not move. Reordering a variant
-silently changes which tokens a rule accepts. Nothing checks this; it is the
-one invariant tibineko cannot enforce for you.
+silently changes which tokens a rule accepts. That part is still on you.
+
+The count, at least, is now checked both sides: the generator throws when a
+token category has more than 64 variants
+(`tokenmap: N distinct <Category> variants exceed the 64-token limit …`), and
+`TokenSet::build_map` panics at compile time if a discriminant of 64 or more
+ever reaches it.
 
 Past 64 variants, widen `TokenSet` to `u128` in your copy.
+
+## Error `expected` lists and `$` payloads
+
+The generated branch parsers report the tokens they expected in
+`IParseErr::build`. A `$payload$` token is listed with a concrete default
+value instead of being dropped: integers become `0`, `bool` becomes `false`,
+`char` becomes `'\0'`, and `Span` becomes `Span::new(0, 0)` — the list lives
+in a function-local `const` item, so your `Span::new` must be a `const fn`.
+Two payloads can never be listed: `Token::Identifier` (its payload is a
+`Symbol`, which has no public const constructor — the `identifier` flag on
+the error carries it instead) and float literals (their token payload is a
+wrapper such as `HashableFloat<f32>`, not a plain `f32`). Unknown payload
+types stay out of the list as well.

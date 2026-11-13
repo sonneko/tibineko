@@ -21,15 +21,15 @@ class Lexer {
                 continue;
             }
 
-            // skip line comment
-            const lineComment = this.input.slice(this.position).match(/^\/\/.*\n/);
+            // skip line comment (a trailing comment may end at EOF, without "\n")
+            const lineComment = this.input.slice(this.position).match(/^\/\/[^\n]*\n?/);
             if (lineComment) {
                 this.position += lineComment[0].length;
                 continue;
             }
 
-            // skip block comment
-            const blockComment = this.input.slice(this.position).match(/^\/\*.*\*\//);
+            // skip block comment (non-greedy, may span lines)
+            const blockComment = this.input.slice(this.position).match(/^\/\*[\s\S]*?\*\//);
             if (blockComment) {
                 this.position += blockComment[0].length;
                 continue;
@@ -117,9 +117,6 @@ class Parser {
         if (token.kind === kind) {
             this.advance();
             return;
-        }
-        if (kind === "Colon") {
-            console.log(this.tokens[this.position], this.tokens[this.position - 1]);
         }
         throw new Error(`Expected ${kind}, but got ${token.kind} at position ${this.position}`);
     }

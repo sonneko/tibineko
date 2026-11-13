@@ -1,10 +1,10 @@
 import type {IR, BranchParserFunction, ProductParserFunction, HookParserFunction} from "./ir.ts";
 
 function getFirst2Terminals(
-    firstTerminals: string[],
+    firstTerminals: string[][],
     followTerminals: string[],
 ): { terminals: string[]; includesEof: boolean } {
-    const sequences = firstTerminals.map(sequence => sequence.split(","));
+    const sequences = firstTerminals;
     const follow = new Set(followTerminals);
     const ambiguousFirstTerminals = new Set(
         sequences.map(sequence => sequence[0]).filter(first => follow.has(first)),
@@ -108,7 +108,7 @@ export class ASTTypeGenerator {
         const syncHasLiteral = func.syncPointsTerminals.some(t => t.includes("Literal"));
         const syncHasComment = func.syncPointsTerminals.some(t => t.includes("Comment"));
         const syncPoints = [...new Set(func.syncPointsTerminals.filter(t => !t.includes("$") && !t.includes("_")))].sort().join(", ");
-        const first1Sets = func.firstTerminals.map(v => v.split(",")[0]);
+        const first1Sets = func.firstTerminals.map(sequence => sequence[0]);
         const first1HasIdentifier = first1Sets.some(t => t.includes("Identifier"));
         const first1HasLiteral = first1Sets.some(t => t.includes("Literal"));
         const first1HasComment = first1Sets.some(t => t.includes("Comment"));
@@ -211,17 +211,20 @@ export class ASTTypeGenerator {
         const syncHasIdentifier = func.syncPointsTerminals.some(t => t.includes("Identifier"));
         const syncHasLiteral = func.syncPointsTerminals.some(t => t.includes("Literal"));
         const syncHasComment = func.syncPointsTerminals.some(t => t.includes("Comment"));
-        const syncPoints = func.syncPointsTerminals.filter(t => !t.includes("$")).join(", ");
-        const first1Sets = func.firstTerminals.map(v => v.split(",")[0]);
+        // Dedupe and sort, like the branch side: FIRST/FOLLOW sets used to
+        // repeat a token once per sequence that produced it (LeftParen x5),
+        // which only made generated diffs noisy.
+        const syncPoints = [...new Set(func.syncPointsTerminals.filter(t => !t.includes("$")))].sort().join(", ");
+        const first1Sets = func.firstTerminals.map(sequence => sequence[0]);
         const first1HasIdentifier = first1Sets.some(t => t.includes("Identifier"));
         const first1HasLiteral = first1Sets.some(t => t.includes("Literal"));
         const first1HasComment = first1Sets.some(t => t.includes("Comment"));
-        const first1Points = first1Sets.filter(t => !t.includes("$")).join(", ");
+        const first1Points = [...new Set(first1Sets.filter(t => !t.includes("$")))].sort().join(", ");
         const first2 = getFirst2Terminals(func.firstTerminals, func.syncPointsTerminals);
         const first2HasIdentifier = first2.terminals.some(t => t.includes("Identifier"));
         const first2HasLiteral = first2.terminals.some(t => t.includes("Literal"));
         const first2HasComment = first2.terminals.some(t => t.includes("Comment"));
-        const first2Points = first2.terminals.filter(t => !t.includes("$")).join(", ");
+        const first2Points = [...new Set(first2.terminals.filter(t => !t.includes("$")))].sort().join(", ");
         ret += `    const FOLLOW_SETS: TokenSet = TokenSet::build_map(${syncHasIdentifier}, ${syncHasLiteral}, ${syncHasComment}, true, &[${syncPoints}]);\n`;
         ret += `    const FIRST_1_SETS: TokenSet = TokenSet::build_map(${first1HasIdentifier}, ${first1HasLiteral}, ${first1HasComment}, false, &[${first1Points}]);\n`;
         ret += `    const FIRST_2_SETS: TokenSet = TokenSet::build_map(${first2HasIdentifier}, ${first2HasLiteral}, ${first2HasComment}, ${first2.includesEof}, &[${first2Points}]);\n\n`;

@@ -23,11 +23,18 @@ export function generateASTSizeCheckerRustTest(astTypes: RustASTTypeName[]): str
 }
 
 export function parseASTSizeCheckerResult(result: string): { ast: RustASTTypeName, size: number }[] {
-    const report = result.substring(result.indexOf("===BEGIN_REPORT===") + 18, result.indexOf("===END_REPORT===") - 16);
-    return report.split("\n").map(line => {
-        const separed = line.split(":");
-        const ast = astName(separed[0]);
-        const size = parseInt(separed[1]);
+    const beginMarker = "===BEGIN_REPORT===";
+    const endMarker = "===END_REPORT===";
+    const begin = result.indexOf(beginMarker);
+    const end = result.indexOf(endMarker);
+    if (begin === -1 || end === -1 || end <= begin) {
+        return [];
+    }
+    const report = result.substring(begin + beginMarker.length, end);
+    return report.split("\n").map(line => line.trim()).filter(line => line.length > 0).map(line => {
+        const sep = line.lastIndexOf(":");
+        const ast = astName(line.slice(0, sep));
+        const size = parseInt(line.slice(sep + 1), 10);
         return { ast, size };
-    }).filter((_, i) => i > 0);
+    }).filter(({ size }) => Number.isFinite(size));
 }

@@ -32,9 +32,9 @@ pub trait ASTVisitor {
 pub use crate::parser::manual_ast::BoolLiteral;
 
 impl ASTNode for BoolLiteral {
-    const FOLLOW_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon), Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket)]);
+    const FOLLOW_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket), Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon)]);
     const FIRST_1_SETS: TokenSet = TokenSet::build_map(false, true, false, false, &[]);
-    const FIRST_2_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon), Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket)]);
+    const FIRST_2_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket), Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon)]);
 
     fn get_error_situation(_: ParseErr) -> Option<Self> {
         None
@@ -159,8 +159,8 @@ pub struct GroupedValue {
 }
 
 impl ASTNode for GroupedValue {
-    const FOLLOW_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon), Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket)]);
-    const FIRST_1_SETS: TokenSet = TokenSet::build_map(false, false, false, false, &[Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::LeftParen)]);
+    const FOLLOW_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket), Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon)]);
+    const FIRST_1_SETS: TokenSet = TokenSet::build_map(false, false, false, false, &[Token::Delimiter(Delimiter::LeftParen)]);
     const FIRST_2_SETS: TokenSet = TokenSet::build_map(false, true, false, false, &[Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen)]);
 
     fn get_error_situation(_: ParseErr) -> Option<Self> {
@@ -214,9 +214,9 @@ pub struct ListValue {
 }
 
 impl ASTNode for ListValue {
-    const FOLLOW_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon), Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket)]);
-    const FIRST_1_SETS: TokenSet = TokenSet::build_map(false, false, false, false, &[Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftBracket)]);
-    const FIRST_2_SETS: TokenSet = TokenSet::build_map(false, true, false, false, &[Token::Delimiter(Delimiter::RightBracket), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen)]);
+    const FOLLOW_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket), Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon)]);
+    const FIRST_1_SETS: TokenSet = TokenSet::build_map(false, false, false, false, &[Token::Delimiter(Delimiter::LeftBracket)]);
+    const FIRST_2_SETS: TokenSet = TokenSet::build_map(false, true, false, false, &[Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket)]);
 
     fn get_error_situation(_: ParseErr) -> Option<Self> {
         None
@@ -266,9 +266,9 @@ impl Node for Note {
 pub use crate::parser::manual_ast::NumberLiteral;
 
 impl ASTNode for NumberLiteral {
-    const FOLLOW_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon), Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket)]);
+    const FOLLOW_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket), Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon)]);
     const FIRST_1_SETS: TokenSet = TokenSet::build_map(false, true, false, false, &[]);
-    const FIRST_2_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon), Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket)]);
+    const FIRST_2_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket), Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon)]);
 
     fn get_error_situation(_: ParseErr) -> Option<Self> {
         None
@@ -326,9 +326,9 @@ impl Node for Pair {
 pub use crate::parser::manual_ast::StringLiteral;
 
 impl ASTNode for StringLiteral {
-    const FOLLOW_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon), Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket)]);
+    const FOLLOW_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket), Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon)]);
     const FIRST_1_SETS: TokenSet = TokenSet::build_map(false, true, false, false, &[]);
-    const FIRST_2_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon), Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket)]);
+    const FIRST_2_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket), Token::Delimiter(Delimiter::RightParen), Token::Delimiter(Delimiter::Semicolon)]);
 
     fn get_error_situation(_: ParseErr) -> Option<Self> {
         None
@@ -422,7 +422,7 @@ pub struct ValueItem {
 
 impl ASTNode for ValueItem {
     const FOLLOW_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket)]);
-    const FIRST_1_SETS: TokenSet = TokenSet::build_map(false, true, false, false, &[Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen)]);
+    const FIRST_1_SETS: TokenSet = TokenSet::build_map(false, true, false, false, &[Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen)]);
     const FIRST_2_SETS: TokenSet = TokenSet::build_map(false, true, false, true, &[Token::Delimiter(Delimiter::Comma), Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Delimiter(Delimiter::RightBracket)]);
 
     fn get_error_situation(_: ParseErr) -> Option<Self> {
