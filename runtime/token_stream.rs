@@ -31,10 +31,12 @@ impl TokenStream {
     }
 
     pub fn rollback(&mut self) {
-        self.cursor = self
-            .checkpoints
-            .pop()
-            .expect("No checkpoint to rollback to!");
+        // A rollback with no checkpoint is a no-op rather than a panic:
+        // backtracking code only rolls back a checkpoint it took, and a
+        // missing one means the speculative parse never started.
+        if let Some(cursor) = self.checkpoints.pop() {
+            self.cursor = cursor;
+        }
     }
 
     pub fn commit(&mut self) {
@@ -46,10 +48,15 @@ impl TokenStream {
     }
 
     pub fn get_now_span(&self) -> Span {
+        // An empty stream has no last token to fall back to; report the
+        // empty span at the start of the file instead of panicking.
+        // (Span::new is part of the contract: every consumer tokenizer
+        // already constructs spans that way.)
         self.tokens
             .get(self.cursor)
             .map(|(_, span)| *span)
-            .unwrap_or_else(|| self.tokens.last().map(|(_, span)| *span).unwrap())
+            .or_else(|| self.tokens.last().map(|(_, span)| *span))
+            .unwrap_or_else(|| Span::new(0, 0))
     }
 }
 
@@ -71,5 +78,26 @@ impl std::fmt::Display for TokenStream {
             i += 1;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_stream_has_no_span_to_report() {
+        let stream = TokenStream::new(vec![]);
+        assert_eq!(stream.get_now_span(), Span::new(0, 0));
+        assert!(stream.peek(0).is_none());
+        assert!(stream.is_eof());
+    }
+
+    #[test]
+    fn rollback_without_a_checkpoint_is_a_no_op() {
+        let mut stream = TokenStream::new(vec![]);
+        // Used to panic with "No checkpoint to rollback to!".
+        stream.rollback();
+        stream.commit();
     }
 }

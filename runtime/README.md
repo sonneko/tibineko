@@ -1,6 +1,6 @@
 # `runtime/` — the Rust runtime
 
-6 files, 680 lines. Copy them **directly into `src/parser/`** — not into a
+6 files, 764 lines. Copy them **directly into `src/parser/`** — not into a
 subdirectory. They refer to `crate::parser::...`, so the location is part of
 the contract.
 
@@ -55,6 +55,11 @@ calls to construct an error. It is a **trait** method, so
 `Self::Error::build` does not resolve. See
 [`../docs/gotchas.md`](../docs/gotchas.md) §1.
 
+`ParseErr` stores the `identifier` flag and exposes it as
+`expects_identifier()`; diagnostics use it to say "expected an identifier"
+instead of naming a token list. The generated parser passes `true` exactly
+when an identifier token is among the expected terminals.
+
 ### `recovery.rs` — panic-mode recovery
 
 One free function, `recover(...)`. On error it skips forward to the next
@@ -79,6 +84,11 @@ generic over `TR: Tracer`, so tracing is a zero-cost choice per instantiation.
 
 `new`, `peek(index)`, `checkpoint` / `rollback` / `commit` for backtracking,
 `is_eof`, `get_now_span`, and an `Iterator` impl yielding `(Token, Span)`.
+
+Two failure modes are handled instead of panicking: `get_now_span` on an
+empty stream reports `Span::new(0, 0)`, and `rollback` with no checkpoint is
+a no-op. (That still assumes your `Span` provides `new(usize, usize)` — every
+working tokenizer already constructs spans that way.)
 
 Replaceable if you already have one — the generated parser only reaches it
 through `BaseParser`.
@@ -106,13 +116,26 @@ implementations of the first four.
 by `keyword as u8`, `operator as u8`, `delimiter as u8`. So those three enums
 must be `#[repr(u8)]`, have fewer than 64 variants each, and keep a stable
 order — the bitmask and the token map are only in sync if the discriminants do
-not move. **Nothing checks this.** Past 64 variants, widen `TokenSet` to
+not move. The count is checked: the generator throws past 64 variants per
+category, and `TokenSet::build_map` panics at compile time on a discriminant
+of 64 or more. The *order* is still on you. Past 64 variants, widen `TokenSet` to
 `u128` in your copy.
 
 **`ASTNode` bounds.** Generated nodes are `Copy + Clone + Debug + Hash +
 PartialEq + Eq + 'static + Sized`. Keeping AST nodes small is why lists are
 `ArenaIter` and recursive edges are `ArenaBox`. `check_ast_size.ts` exists to
 catch a struct that grew past a cache line.
+
+**Backtracking does not rewind the arena.** `backtrack` / `backtrack_clean`
+rewind the token cursor and the deferred diagnostics, but allocations a
+speculative parse made in the arena are retained: the arena is a bump
+allocator owned by the consumer and exposes no checkpoint/rewind API, so
+there is nothing to rewind through. The waste is bounded by the size of one
+speculative parse.
+
+**`repeat` stops on zero progress.** An item that parses successfully without
+consuming a token (e.g. a product of only `?B` fields) ends the repetition
+after one item instead of looping forever.
 
 **`ArenaIterReader::Item` is `&mut T`.** The arena iterator hands out mutable
 references, not values. Since the nodes are `Copy`, `.map(|e| *e)` at the point

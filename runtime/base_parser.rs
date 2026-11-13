@@ -136,6 +136,18 @@ impl<S: DiagnosticStream, TR: Tracer> BaseParser for Parser<'_, '_, '_, S, TR> {
                     recover::<T, S, TR>(self, start_span);
                 }
             }
+
+            // An item that parses successfully without consuming a token
+            // would loop forever: every iteration would see the same token
+            // and append another empty item. This is reachable when the
+            // item is only optional fields (e.g. a product of `?B`, whose
+            // inner parse fails and yields `None`) or a hand-written
+            // parser that returns `Ok` without consuming. Recovery after
+            // a failed item always advances at least one token, so only a
+            // zero-consumption success can reach here unchanged.
+            if self.now_span() == start_span {
+                break Ok(self.ctx.ast_arena.finish_iter_allocation::<T>());
+            }
         }
     }
 
@@ -174,6 +186,13 @@ impl<S: DiagnosticStream, TR: Tracer> BaseParser for Parser<'_, '_, '_, S, TR> {
         &mut self,
         mut parser_fn: impl FnMut(&mut Self) -> Result<T, Self::Error>,
     ) -> Result<T, Self::Error> {
+        // Note: only the token cursor and the deferred diagnostics are
+        // rewound here. Allocations the speculative parse made in the
+        // arena are retained: the arena is a bump allocator owned by the
+        // consumer and exposes no checkpoint/rewind API, so there is
+        // nothing to rewind through. The waste is bounded by the size of
+        // one speculative parse; repeated backtracking over the same input
+        // grows the arena by that much each time.
         let previous_mode = self.is_panic_or_backtrack_mode;
         let diagnostics_checkpoint = self.deferred_diagnostics.len();
         self.is_panic_or_backtrack_mode = true;

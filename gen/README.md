@@ -4,7 +4,7 @@ TypeScript, runs on plain `node` (>= 22.6, which strips types natively).
 No `package.json`, no `node_modules`, no build step.
 
 ```bash
-node self_test.ts   # 16 tests, 0 failures
+node self_test.ts   # 43 tests, 0 failures
 ```
 
 Keeping it dependency-free is a deliberate constraint, and CI enforces it: the
@@ -50,13 +50,12 @@ does no other I/O and **never shells out** — the `cargo test` round trip lives
 |---|---|
 | `grammar` | path to the `.tibineko` file |
 | `tokenMap` | path to the token map CSV |
-| `targets.{parser, ast, printer, tokenMap, astSizeChecker}` | output paths. Omit a key to skip that artifact. Used verbatim, so you decide where things land. |
+| `targets.{parser, ast, printer, tokenMap}` | output paths. Omit a key to skip that artifact. Used verbatim, so you decide where things land. |
 | `specDir` | also write `ast.json`, `ir.json`, `mermaid_grammar.html` |
-| `astSizeLimit` | warn above this many bytes per AST struct |
 | `verbose` | log the analyzer's warnings |
 
-`GenerateResult` carries `analysisOutput` (the FIRST/FOLLOW warnings), `written`
-(the files, in order), and `astSizes` when the size checker ran.
+`GenerateResult` carries `analysisOutput` (the FIRST/FOLLOW warnings) and `written`
+(the files, in order).
 
 There is deliberately no config-file schema and no CLI flag parser. You own a
 ~10 line entry script instead — see [`../seed/gen.ts`](../seed/gen.ts).
@@ -72,23 +71,23 @@ yourself and feed back through `parseASTSizeCheckerResult`.
 
 | File | Lines | Role |
 |---|---|---|
-| `analyze.ts` | 697 | the compiler: FIRST/FOLLOW/nullable, cycle detection, LL(2) checks. Also `TokenMap`. |
-| `tests.ts` | 447 | unit tests for the above. |
-| `gen_ast_type.ts` | 278 | emits AST enums/structs, `ASTNode` impls, the `ASTVisitor` trait. |
-| `parse.ts` | 258 | DSL lexer + parser. |
-| `gen_parser.ts` | 238 | emits the `GeneratedParser` trait. |
+| `analyze.ts` | 839 | the compiler: FIRST/FOLLOW/nullable, cycle detection, LL(2) checks. Also `TokenMap`. |
+| `tests.ts` | 801 | unit tests for the above. |
+| `gen_parser.ts` | 308 | emits the `GeneratedParser` trait. |
+| `gen_ast_type.ts` | 281 | emits AST enums/structs, `ASTNode` impls, the `ASTVisitor` trait. |
+| `parse.ts` | 255 | DSL lexer + parser. |
+| `gen_tokenmap.ts` | 173 | emits scanner tables (longest-match trie + `phf` map). |
 | `gen_ast_printer.ts` | 133 | emits the visitor that prints JSON. |
-| `gen_tokenmap.ts` | 119 | emits scanner tables (longest-match trie + `phf` map). |
-| `index.ts` | 110 | `generate()` and `TibinekoConfig`. |
+| `index.ts` | 108 | `generate()` and `TibinekoConfig`. |
 | `gen_mermaid.ts` | 104 | grammar diagram. |
-| `ir.ts` | 89 | the intermediate representation. |
+| `ir.ts` | 91 | the intermediate representation. |
 | `ast.ts` | 80 | DSL types, the BNF, and the lexer's token patterns. |
 | `test_utility.ts` | 55 | the `describe`/`it`/`match` mini-harness the tests use. |
-| `check_ast_size.ts` | 33 | AST size reporting. |
+| `check_ast_size.ts` | 40 | AST size reporting. |
 | `gen.ts` | 32 | fans the IR out to the three Rust emitters. |
 | `self_test.ts` | 1 | `import "./tests.ts";` — the entry point for `node`. |
 
-15 files, 2674 lines.
+15 files, 3301 lines.
 
 ## Where to look first
 
