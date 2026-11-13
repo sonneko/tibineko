@@ -28,11 +28,6 @@ fn entries_of(ast: &Ast<'_>) -> Vec<Entry> {
         .collect()
 }
 
-fn entries(source: &str) -> Vec<Entry> {
-    let (ast, _) = parse_source(source);
-    entries_of(&ast)
-}
-
 /// The same, for one list's items.
 fn items_of(list: &ListValue, ast: &Ast<'_>) -> Vec<ValueItem> {
     list.items().into_ref(ast.arena()).map(|e| *e).collect()
@@ -77,7 +72,9 @@ fn resolves_keys_through_the_symbol_table() {
 
 #[test]
 fn distinguishes_every_value_shape() {
-    let parsed = entries(DOCUMENT);
+    let (ast, diagnostics) = parse_source(DOCUMENT);
+    assert!(diagnostics.is_empty(), "unexpected: {diagnostics:?}");
+    let parsed = entries_of(&ast);
     let shapes: Vec<&str> = parsed
         .iter()
         .filter_map(|e| match e {
@@ -192,9 +189,12 @@ fn garbage_in_the_middle_still_yields_a_document() {
         .map(|e| *e)
         .filter(|e| matches!(e, Entry::Pair(_)))
         .count();
-    assert!(
-        pairs >= 1,
-        "the document should not be empty: {pairs} pairs"
+    // Both pairs survive: the garbage is skipped and parsing resumes at `b`.
+    // (This used to assert only `>= 1`, which passed even when recovery
+    // swallowed the second pair.)
+    assert_eq!(
+        pairs, 2,
+        "both pairs should survive the garbage, got {pairs}"
     );
 }
 

@@ -5,7 +5,7 @@ function generateMermaid(grammar: Grammar): string {
 
     for (const rule of grammar) {
         if (rule.kind === "Branch") {
-            lines.push(`    class _${rule.name}`);
+            lines.push(`    class ${rule.name}`);
             for (const variant of rule.variants) {
                 lines.push(`    ${rule.name} <|-- ${variant.name}`);
             }

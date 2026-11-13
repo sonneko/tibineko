@@ -25,8 +25,10 @@ export type BranchParserFunction = {
     astTypeName: RustASTTypeName,
     expectedTerminals: RustTokenTypeName[],
     syncPointsTerminals: RustTokenTypeName[],
-    firstTerminals: RustTokenTypeName[],
-    firstAndFollowConflict: boolean,
+    // FIRST as token *sequences* (up to two tokens for LL(2)), one array
+    // per sequence. The old comma-joined strings ("TokenA,TokenB") leaked
+    // into ir.json, where consumers had to split them back apart.
+    firstTerminals: RustTokenTypeName[][],
     branchesJudgebleInPeek0: {
         astTypeName: RustASTTypeName,
         firstTerminal: RustTokenTypeName,
@@ -60,8 +62,8 @@ export type ProductParserFunction = {
     functionName: RustFunctionName,
     astTypeName: RustASTTypeName,
     syncPointsTerminals: RustTokenTypeName[],
-    firstTerminals: RustTokenTypeName[],
-    firstAndFollowConflict: boolean,
+    // See BranchParserFunction: FIRST sequences as real arrays.
+    firstTerminals: RustTokenTypeName[][],
     elements: ({
         name: string,
         kind: "normal",

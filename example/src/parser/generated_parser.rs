@@ -12,6 +12,7 @@ use crate::parser::base_parser::BaseParser;
 use crate::parser::errors::IParseErr;
 use crate::parser::tracer::TraceGuard;
 use crate::parser::ast_node::ASTNode;
+use crate::compiler::span::Span;
 use crate::tokenizer::tokens::{Delimiter, Keyword, Literal, Operator, Comment, Token};
 
 #[allow(clippy::wildcard_imports)]
@@ -43,12 +44,13 @@ pub trait GeneratedParser: BaseParser + Sized {
 
 
     fn parse_Entry(&mut self) -> Result<Entry, Self::Error> {
+        const EXPECTED_ENTRY: &[Token] = &[Token::Comment(Comment::DocComment(Span::new(0, 0)))];
         match self.peek::<0>() {
             Some(Token::Comment(Comment::DocComment(_))) => Ok(Entry::Note(self.parse_Note()?)),
             Some(Token::Identifier(_)) => Ok(Entry::Pair(self.parse_Pair()?)),
             _ => Err(Self::Error::build(
                 true,
-                &[],
+                EXPECTED_ENTRY,
                 self.enviroment(),
             )),
         }
@@ -103,6 +105,7 @@ pub trait GeneratedParser: BaseParser + Sized {
 
 
     fn parse_Value(&mut self) -> Result<Value, Self::Error> {
+        const EXPECTED_VALUE: &[Token] = &[Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen), Token::Literal(Literal::BoolLiteral(false)), Token::Literal(Literal::IntegerLiteral(0)), Token::Literal(Literal::StringLiteral(Span::new(0, 0)))];
         match self.peek::<0>() {
             Some(Token::Literal(Literal::BoolLiteral(_))) => Ok(Value::BoolLiteral(self.parse_BoolLiteral()?)),
             Some(Token::Delimiter(Delimiter::LeftParen)) => Ok(Value::GroupedValue(self.parse_GroupedValue()?)),
@@ -110,8 +113,8 @@ pub trait GeneratedParser: BaseParser + Sized {
             Some(Token::Literal(Literal::IntegerLiteral(_))) => Ok(Value::NumberLiteral(self.parse_NumberLiteral()?)),
             Some(Token::Literal(Literal::StringLiteral(_))) => Ok(Value::StringLiteral(self.parse_StringLiteral()?)),
             _ => Err(Self::Error::build(
-                true,
-                &[Token::Delimiter(Delimiter::LeftBracket), Token::Delimiter(Delimiter::LeftParen)],
+                false,
+                EXPECTED_VALUE,
                 self.enviroment(),
             )),
         }
