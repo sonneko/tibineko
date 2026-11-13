@@ -28,13 +28,9 @@ export interface TibinekoConfig {
         printer?: string;
         /** Scanner tables for the tokenizer. */
         tokenMap?: string;
-        /** The `#[ignore]`d test that reports AST struct sizes. */
-        astSizeChecker?: string;
     };
     /** Where to drop `ast.json`, `ir.json` and the mermaid diagram. */
     specDir?: string;
-    /** Warn when an AST struct exceeds this many bytes (cache-line-ish). */
-    astSizeLimit?: number;
     /** Extra log lines; the analyzer reports grammar smells here. */
     verbose?: boolean;
 }
@@ -44,8 +40,6 @@ export interface GenerateResult {
     analysisOutput: string;
     /** Files written, in the order they were written. */
     written: string[];
-    /** Rule name -> byte size, when the size checker ran. */
-    astSizes?: { ast: string; size: number }[];
 }
 
 function write(path: string, contents: string, written: string[]) {
@@ -58,8 +52,12 @@ function write(path: string, contents: string, written: string[]) {
  * Runs the whole pipeline: grammar -> AST -> IR -> Rust sources.
  *
  * This function does no I/O beyond reading the two inputs and writing the
- * declared targets. It never shells out; the `cargo test` round trip lives in
- * `./check_ast_size.ts` and is opt-in.
+ * declared targets. It never shells out; the `cargo test` round trip for
+ * AST sizes lives in `./check_ast_size.ts` and is opt-in — see
+ * `gen/README.md`. (An earlier `targets.astSizeChecker` / `astSizeLimit` /
+ * `astSizes` config promised that round trip inside `generate()`; it could
+ * never deliver it without shelling out, so the config was removed rather
+ * than left half-wired.)
  */
 export function generate(cfg: TibinekoConfig): GenerateResult {
     const written: string[] = [];

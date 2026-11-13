@@ -11,6 +11,12 @@ impl IntoDiagnostic for ParseErr {
         let found = self.found();
         let message = if found.current == crate::tokenizer::tokens::Token::EndOfFile {
             "unexpected end of file"
+        } else if self.expects_identifier() && self.expected().len() <= 1 {
+            // The single expected token is the identifier (see
+            // `IParseErr::build`); name it instead of the generic text.
+            // (An empty list with the flag set is `parse_Identifier`'s
+            // own error: the only thing expected was an identifier.)
+            "unexpected token; expected an identifier"
         } else {
             match self.expected() {
                 [] => "unexpected token",
